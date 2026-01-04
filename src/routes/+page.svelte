@@ -2,8 +2,8 @@
   import { createGrid, placeMines, revealCell, DIRECTIONS, type Cell } from '$lib/minesweeper';
   import { onMount, onDestroy } from 'svelte';
   import { Flag, Bomb, Grid3x3, Wrench, X, Flame, Skull, Flower2 } from 'lucide-svelte';
+  import ResultView from '$lib/ResultView.svelte';
 
-  // --- CONFIGURATION ---
   const PRESETS = [
     { label: '9x9', rows: 9, cols: 9, mines: 10 },
     { label: '16x16', rows: 16, cols: 16, mines: 40 },
@@ -11,19 +11,15 @@
   ];
 
   let activePresetLabel = '16x16'; 
-
-  // Game Settings
   let rows = 16;
   let cols = 16;
   let mines = 40;
 
-  // Custom Modal State
   let showCustomModal = false;
   let customRows = 20;
   let customCols = 20;
   let customMines = 50;
 
-  // Game State
   let grid: Cell[][] = [];
   let gameState: 'pending' | 'playing' | 'won' | 'lost' = 'pending';
   let isFirstClick = true; 
@@ -31,11 +27,14 @@
   let timerInterval: ReturnType<typeof setInterval> | undefined;
   let minesLeft = 0;
   
-  // Track mouse state
+  let totalClicks = 0;
+  let clickHistory: number[] = [];
+  let clicksThisSecond = 0;
+  let finalAccuracy = 0; 
+  
   let isMouseDown = false;
   let hoveredCell: { r: number, c: number } | null = null;
 
-  // --- DYNAMIC STATUS ICON ---
   $: StatusIcon = (() => {
     if (gameState === 'won') return Flower2;
     if (gameState === 'lost') return Skull; 
@@ -62,7 +61,6 @@
     rows = customRows;
     cols = customCols;
     mines = customMines;
-    
     showCustomModal = false;
     startNewGame();
   }
@@ -73,18 +71,30 @@
     grid = createGrid(rows, cols);
     timer = 0;
     minesLeft = mines;
+    totalClicks = 0;
+    clickHistory = [];
+    clicksThisSecond = 0;
+    finalAccuracy = 0;
     clearInterval(timerInterval);
   }
 
   function startGameTimer() {
     if (gameState === 'playing') return;
     gameState = 'playing';
-    timerInterval = setInterval(() => timer++, 1000);
+    timerInterval = setInterval(() => {
+        timer++;
+        clickHistory.push(clicksThisSecond);
+        clickHistory = clickHistory; 
+        clicksThisSecond = 0; 
+    }, 1000);
   }
 
   function handleClick(r: number, c: number) {
     if (gameState === 'lost' || gameState === 'won') return;
-    if (grid[r][c].isFlagged) return;
+    if (grid[r][c].isFlagged) return; 
+
+    totalClicks++;
+    clicksThisSecond++;
 
     if (isFirstClick) {
         isFirstClick = false;
@@ -103,6 +113,20 @@
     }
   }
 
+  function toggleFlag(r: number, c: number) {
+    if (gameState === 'lost' || gameState === 'won') return;
+    
+    if (!grid[r][c].isOpen) {
+      grid[r][c].isFlagged = !grid[r][c].isFlagged;
+      if (grid[r][c].isFlagged) minesLeft--;
+      else minesLeft++;
+
+      totalClicks++;
+      clicksThisSecond++;
+      grid = grid; 
+    }
+  }
+
   function checkWin() {
       let safeCellsOpen = 0;
       const totalSafeCells = (rows * cols) - mines;
@@ -114,48 +138,78 @@
       if (safeCellsOpen === totalSafeCells) endGame(true);
   }
 
-  function toggleFlag(r: number, c: number) {
-    if (gameState === 'lost' || gameState === 'won') return;
-    if (!grid[r][c].isOpen) {
-      grid[r][c].isFlagged = !grid[r][c].isFlagged;
-      if (grid[r][c].isFlagged) minesLeft--;
-      else minesLeft++;
-    }
-  }
-
   function endGame(win: boolean) {
     gameState = win ? 'won' : 'lost';
     clearInterval(timerInterval);
+    if (clicksThisSecond > 0) clickHistory.push(clicksThisSecond);
+    
+    // --- ACCURACY LOGIC ---
+    if (win) {
+        finalAccuracy = 100;
+    } else {
+        let wrongFlags = 0;
+        let explodedMine = 1; 
+
+        for(let row of grid) {
+            for(let cell of row) {
+                if (cell.isFlagged && !cell.isMine) {
+                    wrongFlags++;
+                }
+            }
+        }
+        
+        const errors = explodedMine + wrongFlags;
+        const rawAcc = ((mines - errors) / mines) * 100;
+        finalAccuracy = Math.max(0, Math.round(rawAcc));
+    }
+
+    grid = [...grid];
   }
 
   function handleInput(e: KeyboardEvent) {
     if (showCustomModal) return; 
 
-    if (e.code === 'Space') {
-      e.preventDefault();
-      if (gameState === 'won' || gameState === 'lost') {
+    if (e.key === 'Tab') {
+        e.preventDefault();
         startNewGame();
-      } else if (hoveredCell) {
-        const { r, c } = hoveredCell;
-        const cell = grid[r][c];
-        if (!cell.isOpen) toggleFlag(r, c);
-        else if (cell.neighborCount > 0) attemptChord(r, c);
-      }
+        return;
     }
     if (e.key === 'r') startNewGame();
+
+    if (e.code === 'Space') {
+      e.preventDefault(); 
+      if (gameState === 'won' || gameState === 'lost') {
+        startNewGame();
+        return;
+      }
+      if (hoveredCell) {
+        const { r, c } = hoveredCell;
+        const cell = grid[r][c];
+        
+        if (!cell.isOpen) {
+            toggleFlag(r, c);
+        } else if (cell.neighborCount > 0) {
+            attemptChord(r, c);
+        }
+      }
+    }
   }
 
   function attemptChord(r: number, c: number) {
     const cell = grid[r][c];
     let flagCount = 0;
+    
     DIRECTIONS.forEach(([dr, dc]) => {
         const nr = r + dr, nc = c + dc;
         if (grid[nr] && grid[nr][nc] && grid[nr][nc].isFlagged) flagCount++;
     });
 
     if (flagCount === cell.neighborCount) {
+        totalClicks++; 
+        clicksThisSecond++;
         DIRECTIONS.forEach(([dr, dc]) => {
             const nr = r + dr, nc = c + dc;
+            if (gameState === 'lost') return; 
             if (grid[nr] && grid[nr][nc]) handleClick(nr, nc);
         });
     }
@@ -172,91 +226,106 @@
 
 <div class="min-h-screen bg-bg text-text flex flex-col items-center pt-16 font-mono">
   
-  <div class="flex items-center gap-4 bg-sub/10 px-4 py-2 rounded-lg mb-8 text-sm select-none transition-all hover:bg-sub/15">
-    <div class="flex items-center gap-2 text-sub font-bold opacity-75">
-        <Grid3x3 size={14} />
-        <span>size</span>
-    </div>
+  {#if gameState === 'won' || gameState === 'lost'}
     
-    <div class="w-[2px] h-4 bg-sub/20 rounded-full"></div>
-    
-    <div class="flex items-center gap-4">
-        {#each PRESETS as preset}
+    <ResultView 
+        win={gameState === 'won'}
+        time={timer} 
+        {mines}
+        {totalClicks}
+        history={clickHistory}
+        accuracy={finalAccuracy}
+        sizeLabel="{rows}x{cols}"
+        on:restart={startNewGame}
+    />
+
+  {:else}
+
+    <div class="flex items-center gap-4 bg-sub/10 px-4 py-2 rounded-lg mb-8 text-sm select-none transition-all hover:bg-sub/15">
+        <div class="flex items-center gap-2 text-sub font-bold opacity-75">
+            <Grid3x3 size={14} />
+            <span>size</span>
+        </div>
+        <div class="w-[2px] h-4 bg-sub/20 rounded-full"></div>
+        <div class="flex items-center gap-4">
+            {#each PRESETS as preset (preset.label)}
+                <button 
+                    class="transition-colors duration-200 {activePresetLabel === preset.label ? 'text-main font-bold' : 'text-sub hover:text-text'}"
+                    on:click={() => applyPreset(preset)}
+                >
+                    {preset.label}
+                </button>
+            {/each}
             <button 
-                class="transition-colors duration-200 {activePresetLabel === preset.label ? 'text-main font-bold' : 'text-sub hover:text-text'}"
-                on:click={() => applyPreset(preset)}
+                class="transition-colors duration-200 {activePresetLabel === 'custom' ? 'text-main' : 'text-sub hover:text-text'}"
+                on:click={() => showCustomModal = true}
+                title="Custom Size"
             >
-                {preset.label}
+                <Wrench size={14} />
             </button>
-        {/each}
-        <button 
-            class="transition-colors duration-200 {activePresetLabel === 'custom' ? 'text-main' : 'text-sub hover:text-text'}"
-            on:click={() => showCustomModal = true}
-            title="Custom Size"
-        >
-            <Wrench size={14} />
-        </button>
+        </div>
     </div>
-  </div>
 
-  <div class="flex flex-col gap-2">
-      
-      <div class="flex items-end justify-between px-1 text-main select-none">
-          <div class="flex flex-col w-12">
-            <span class="text-xl font-bold leading-none">{timer}</span>
-          </div>
+    <div class="flex flex-col gap-2 animate-in fade-in duration-300">
+        <div class="flex items-end justify-between px-1 text-main select-none">
+            <div class="flex flex-col w-12">
+              <span class="text-[10px] text-sub uppercase font-bold opacity-50">time</span>
+              <span class="text-xl font-bold leading-none">{timer}</span>
+            </div>
 
-          <button 
-              on:click={startNewGame}
-              class="flex items-center justify-center text-main hover:text-white transition-transform active:scale-95"
-          >
-              <svelte:component this={StatusIcon} size={24} />
-          </button>
-
-          <div class="flex flex-col w-12 text-right">
-            <span class="text-xl font-bold leading-none">{minesLeft}</span>
-          </div>
-      </div>
-
-      <div 
-        class="grid gap-1 bg-bg select-none transition-all duration-300 ease-in-out"
-        style="grid-template-columns: repeat({cols}, minmax(0, 1fr));"
-        on:mousedown={() => { if(gameState === 'playing') isMouseDown = true }}
-      >
-        {#each grid as row, r (r)}
-          {#each row as cell, c (c)}
-            <button
-              class="w-8 h-8 flex items-center justify-center text-sm font-bold rounded-sm transition-all duration-75
-              {cell.isOpen ? 'bg-sub/10' : 'bg-sub/30 hover:bg-sub/50'}
-              {cell.isMine && cell.isOpen ? 'bg-error text-bg' : ''}
-              {gameState === 'lost' && cell.isMine && !cell.isOpen ? 'opacity-50 bg-error/50' : ''}
-              {hoveredCell?.r === cell.row && hoveredCell?.c === cell.col ? 'brightness-125 ring-2 ring-main/20 z-10' : ''}
-              "
-              on:click={() => handleClick(cell.row, cell.col)}
-              on:contextmenu|preventDefault={() => toggleFlag(cell.row, cell.col)}
-              on:mouseenter={() => hoveredCell = { r: cell.row, c: cell.col }}
-              on:mouseleave={() => hoveredCell = null}
+            <button 
+                on:click={startNewGame}
+                class="flex items-center justify-center text-main hover:text-white transition-transform active:scale-95"
             >
-              {#if cell.isOpen}
-                {#if cell.isMine} 
-                  <Bomb size={16} /> 
-                {:else if cell.neighborCount > 0}
-                  <span class={
-                    cell.neighborCount === 1 ? 'text-blue-400' :
-                    cell.neighborCount === 2 ? 'text-green-400' :
-                    cell.neighborCount === 3 ? 'text-red-400' : 'text-purple-400'
-                  }>
-                    {cell.neighborCount}
-                  </span>
-                {/if}
-              {:else if cell.isFlagged}
-                <span class="text-error"><Flag size={14} fill="currentColor" /></span>
-              {/if}
+                <svelte:component this={StatusIcon} size={24} />
             </button>
+
+            <div class="flex flex-col w-12 text-right">
+              <span class="text-[10px] text-sub uppercase font-bold opacity-50">mines</span>
+              <span class="text-xl font-bold leading-none">{minesLeft}</span>
+            </div>
+        </div>
+
+        <div 
+          class="grid gap-1 bg-bg select-none transition-all duration-300 ease-in-out"
+          style="grid-template-columns: repeat({cols}, minmax(0, 1fr));"
+          on:mousedown={() => { if(gameState === 'playing') isMouseDown = true }}
+        >
+          {#each grid as row, r (r)}
+            {#each row as cell, c (c)}
+              <button
+                class="w-8 h-8 flex items-center justify-center text-sm font-bold rounded-sm transition-all duration-75 focus:outline-none
+                {cell.isOpen ? 'bg-sub/10' : 'bg-sub/30 hover:bg-sub/50'}
+                {cell.isMine && cell.isOpen ? 'bg-error text-bg' : ''}
+                {gameState === 'lost' && cell.isMine && !cell.isOpen ? 'opacity-50 bg-error/50' : ''}
+                {hoveredCell?.r === cell.row && hoveredCell?.c === cell.col ? 'brightness-125 ring-2 ring-main/20 z-10' : ''}
+                "
+                on:click={() => handleClick(cell.row, cell.col)}
+                on:contextmenu|preventDefault={() => toggleFlag(cell.row, cell.col)}
+                on:mouseenter={() => hoveredCell = { r: cell.row, c: cell.col }}
+                on:mouseleave={() => hoveredCell = null}
+              >
+                {#if cell.isOpen}
+                  {#if cell.isMine} 
+                    <Bomb size={16} /> 
+                  {:else if cell.neighborCount > 0}
+                    <span class={
+                      cell.neighborCount === 1 ? 'text-blue-400' :
+                      cell.neighborCount === 2 ? 'text-green-400' :
+                      cell.neighborCount === 3 ? 'text-red-400' : 'text-purple-400'
+                    }>
+                      {cell.neighborCount}
+                    </span>
+                  {/if}
+                {:else if cell.isFlagged}
+                  <span class="text-error"><Flag size={14} fill="currentColor" /></span>
+                {/if}
+              </button>
+            {/each}
           {/each}
-        {/each}
-      </div>
-  </div>
+        </div>
+    </div>
+  {/if}
 
   {#if showCustomModal}
     <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm">

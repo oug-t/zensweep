@@ -37,6 +37,9 @@
 		"vite": "^7.2.6"
 	},
 	"dependencies": {
-		"lucide-svelte": "^0.562.0"
+		"chart.js": "^4.5.1",
+		"lodash": "^4.17.21",
+		"lucide-svelte": "^0.562.0",
+		"react-chartjs-2": "^5.3.1"
 	}
 }
