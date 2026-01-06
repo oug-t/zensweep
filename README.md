@@ -1,6 +1,6 @@
-# ZenSweep
+# Zsweep
 
-**ZenSweep** is a minimalist, customizable Minesweeper experience designed for focus and productivity. Inspired by modern minimalist tools, it provides a clean, distraction-free environment to track your progress and refine your sweeping skills.
+**Zsweep** is a minimalist, customizable Minesweeper experience designed for focus and productivity. Inspired by modern minimalist tools, it provides a clean, distraction-free environment to track your progress and refine your sweeping skills.
 
 ---
 
@@ -26,7 +26,7 @@
 
 ## Keybinds
 
-Efficiency is at the heart of ZenSweep. You can navigate almost the entire app without a mouse:
+Efficiency is at the heart of Zsweep. You can navigate almost the entire app without a mouse:
 
 | Key      | Action                                                                 |
 |----------|------------------------------------------------------------------------|
@@ -52,8 +52,8 @@ Efficiency is at the heart of ZenSweep. You can navigate almost the entire app w
 
 ## Design Inspiration & Appreciation
 
-ZenSweep’s visual language and philosophy draw inspiration from **Monkeytype**.  
-Special appreciation goes to the Monkeytype project for demonstrating how thoughtful minimalism, strong typography, and keyboard-first interaction can create a focused and enjoyable user experience. ZenSweep adapts these ideas into a Minesweeper context while maintaining its own identity.
+Zsweep’s visual language and philosophy draw inspiration from **Monkeytype**.  
+Special appreciation goes to the Monkeytype project for demonstrating how thoughtful minimalism, strong typography, and keyboard-first interaction can create a focused and enjoyable user experience. Zsweep adapts these ideas into a Minesweeper context while maintaining its own identity.
 
 ---
 
@@ -70,5 +70,5 @@ Special appreciation goes to the Monkeytype project for demonstrating how though
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-username/zensweep.git
+   git clone https://github.com/oug-t/zsweep.git
 

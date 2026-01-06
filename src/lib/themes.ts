@@ -12,8 +12,8 @@ export interface Theme {
 
 export const THEMES: Theme[] = [
 	{
-		name: 'zen_modern',
-		label: 'Zen Modern',
+		name: 'z_modern',
+		label: 'Z Modern',
 		colors: {
 			bg: '25 25 25',
 			main: '216 180 254',

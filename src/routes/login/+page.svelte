@@ -84,7 +84,7 @@
 		<a href="/" class="flex select-none items-center gap-2 transition-opacity hover:opacity-80">
 			<Bomb size={24} class="text-main" />
 			<h1 class="text-2xl font-bold tracking-tight text-text">
-				zen<span class="text-main">sweep</span>
+				z<span class="text-main">sweep</span>
 			</h1>
 		</a>
 

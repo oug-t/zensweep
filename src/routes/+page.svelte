@@ -480,7 +480,7 @@
 			>
 				<Bomb size={24} class={gameState === 'playing' ? 'text-sub' : 'text-main'} />
 				<h1 class="text-2xl font-bold tracking-tight text-text">
-					zen<span class={gameState === 'playing' ? 'text-text' : 'text-main'}>sweep</span>
+					z<span class={gameState === 'playing' ? 'text-text' : 'text-main'}>sweep</span>
 				</h1>
 			</a>
 

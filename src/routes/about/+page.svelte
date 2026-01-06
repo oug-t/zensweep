@@ -67,7 +67,7 @@
 		<a href="/" class="flex select-none items-center gap-2 transition-opacity hover:opacity-80">
 			<Bomb size={24} class="text-main" />
 			<h1 class="text-2xl font-bold tracking-tight text-text">
-				zen<span class="text-main">sweep</span>
+				z<span class="text-main">sweep</span>
 			</h1>
 		</a>
 
@@ -143,10 +143,10 @@
 					<Info size={16} class="text-main" /> about
 				</h2>
 				<p class="max-w-2xl">
-					ZenSweep is a minimalist and customizable minesweeper game. It features many game modes,
-					an account system to save your sweeping history, and user-configurable features such as
-					themes and sounds. ZenSweep attempts to emulate the focused, productive experience of
-					modern minimalist tools.
+					Zsweep is a minimalist and customizable minesweeper game. It features many game modes, an
+					account system to save your sweeping history, and user-configurable features such as
+					themes and sounds. Zsweep attempts to emulate the focused, productive experience of modern
+					minimalist tools.
 				</p>
 			</section>
 
@@ -210,7 +210,7 @@
 
 					<!-- GitHub -->
 					<a
-						href="https://github.com/oug-t/zensweep"
+						href="https://github.com/oug-t/zsweep"
 						target="_blank"
 						rel="noopener noreferrer"
 						class="flex items-center justify-center gap-3 rounded-lg bg-sub/5 px-6 py-4 text-text transition-colors hover:bg-sub/10"
