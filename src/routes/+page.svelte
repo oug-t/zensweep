@@ -165,7 +165,7 @@
 
 	// --- CONFETTI EFFECTS ---
 	function triggerExplosion() {
-		const colors = ['#ef4444', '#dc2626', '#b91c1c', '#000000']; 
+		const colors = ['#ef4444', '#dc2626', '#b91c1c', '#000000'];
 		confetti({
 			particleCount: 150,
 			spread: 100,
@@ -229,7 +229,7 @@
 			} else {
 				timer++;
 			}
-			
+
 			// Push stats for graph
 			clickHistory.push(clicksThisSecond);
 			clickHistory = clickHistory;
@@ -249,29 +249,29 @@
 		clearInterval(timerInterval);
 
 		if (clicksThisSecond > 0) clickHistory.push(clicksThisSecond);
-		
+
 		// Final stat collection
 		if (gameMode === 'standard') {
 			// In standard, ending the session (win) means we finished 1 grid
 			gridsPlayed = 1;
 			sessionTotalMines = currentSize.mines; // Ensure we count mines for accuracy
-			if(win) {
+			if (win) {
 				// If we won standard, all safe cells are revealed
-				totalCellsRevealed = (currentSize.rows * currentSize.cols) - currentSize.mines;
+				totalCellsRevealed = currentSize.rows * currentSize.cols - currentSize.mines;
 			} else {
 				// If we lost, count what we managed to open
 				totalCellsRevealed = countCurrentSafeOpen();
 			}
 		} else {
-			// Time Mode: 
+			// Time Mode:
 			// We only count the current partial board if we "Won" (Time ran out)
 			// If we "Lost" (Exploded), the current board is invalid for stats
 			if (win) {
 				totalCellsRevealed += countCurrentSafeOpen();
 				// Add mines from the current partial board for accuracy calc
-				sessionTotalMines += currentSize.mines; 
+				sessionTotalMines += currentSize.mines;
 				// Time mode counts partially played grids as played
-				gridsPlayed++; 
+				gridsPlayed++;
 			}
 		}
 
@@ -282,7 +282,7 @@
 
 		finalAccuracy = calculateAccuracy();
 		grid = [...grid]; // Force refresh
-		
+
 		if (win) triggerWin();
 		saveResult(win);
 	}
@@ -314,7 +314,7 @@
 		if (result.gameOver) {
 			triggerExplosion();
 			// Immediate penalty for hitting a mine
-			sessionErrors += 1; 
+			sessionErrors += 1;
 			sessionErrors += countWrongFlags();
 			finishSession(false);
 		} else {
@@ -345,13 +345,13 @@
 		if (safeCellsOpen === totalSafeCells) {
 			if (gameMode === 'time') {
 				gridsSolved++;
-				gridsPlayed++; 
+				gridsPlayed++;
 				session3BV += currentGrid3BV;
 				totalCellsRevealed += totalSafeCells;
 				sessionTotalMines += currentSize.mines;
 				sessionErrors += countWrongFlags();
 
-				resetBoard(); 
+				resetBoard();
 			} else {
 				gridsSolved = 1;
 				finishSession(true);
@@ -453,19 +453,22 @@
 		fullReset();
 	}
 
-async function saveResult(win: boolean) {
+	async function saveResult(win: boolean) {
 		const {
 			data: { user }
 		} = await supabase.auth.getUser();
 
-
+		// 1. Calculate Time Taken
 		let timeTaken = 0;
 		if (gameMode === 'standard') {
-			timeTaken = timer;
+			timeTaken = timer; // Standard counts UP
 		} else {
+			// Time mode counts DOWN, so (Limit - Current) = Time Passed
 			timeTaken = timeLimit - timer;
+			if (timeTaken < 0) timeTaken = 0;
 		}
 
+		// 2. Calculate Grids Solved
 		let gridsValue = 0;
 		if (gameMode === 'standard') {
 			gridsValue = win ? 1 : 0;
@@ -473,21 +476,34 @@ async function saveResult(win: boolean) {
 			gridsValue = gridsSolved;
 		}
 
+		// 3. NEW: Calculate Total Mines Swept
+		// We calculate this right now so the Profile page has a number to sum up later.
+		let minesSwept = 0;
+		if (win) {
+			if (gameMode === 'standard') {
+				// In Standard, if you win, you swept ALL mines on that board
+				minesSwept = currentSize.mines;
+			} else {
+				// In Time Attack, you swept (Grids Solved * Mines Per Grid)
+				minesSwept = gridsSolved * currentSize.mines;
+			}
+		}
+
 		const settingLabel = gameMode === 'time' ? timeLimit.toString() : currentSize.label;
 
-        // If user is null, we send 'null' or undefined for user_id.
-        // Supabase will treat this as an anonymous entry.
+		// 4. Insert into Database
 		const { error } = await supabase.from('game_results').insert({
-			user_id: user ? user.id : null, // <--- Logic Change Here
+			user_id: user ? user.id : null,
 			mode: gameMode,
 			setting: settingLabel,
 			win: win,
 			time: timeTaken,
 			grids: gridsValue,
+			total_mines: minesSwept, // <--- THIS is what fixes the NaN
 			accuracy: finalAccuracy
 		});
-        
-        if (error) console.error("Error saving result:", error);
+
+		if (error) console.error('Error saving result:', error);
 	}
 
 	onDestroy(() => clearInterval(timerInterval));

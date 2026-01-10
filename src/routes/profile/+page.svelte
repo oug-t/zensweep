@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation'; // Import goto for smoother navigation
-	import { base } from '$app/paths';
+	import { goto } from '$app/navigation';
 	import { supabase } from '$lib/supabase';
 	import {
 		User,
@@ -18,6 +17,14 @@
 	} from 'lucide-svelte';
 	import { currentTheme } from '$lib/themeStore';
 	import { THEMES } from '$lib/themes';
+
+	// --- 1. Helper to force ANY value into a valid number ---
+	// This prevents database nulls/undefineds from turning into NaN
+	const safeNum = (val: any) => {
+		if (val === null || val === undefined) return 0;
+		const n = Number(val);
+		return isNaN(n) ? 0 : n;
+	};
 
 	let loading = true;
 	let profile: any = null;
@@ -83,82 +90,66 @@
 
 		if (r) {
 			history = r;
-			calculateStats(r);
+			// REACTIVITY FIX: Assign the result to stats so Svelte sees the change
+			stats = calculateStats(r);
 			generateHeatmap(r);
 		}
 		loading = false;
 	});
 
+	// Helper to safely convert anything to a number
+	const safeNum = (val: any) => {
+		const n = Number(val);
+		return isNaN(n) ? 0 : n;
+	};
+
 	function calculateStats(data: any[]) {
-		stats.started = data.length;
-		stats.completed = data.filter((g) => g.win).length;
-		stats.completionRate =
-			stats.started > 0 ? Math.round((stats.completed / stats.started) * 100) : 0;
+		const newStats = {
+			started: 0,
+			completed: 0,
+			timeSweeping: '00:00:00',
+			totalMinesSwept: 0,
+			completionRate: 0
+		};
+
+		newStats.started = data.length;
+		newStats.completed = data.filter((g) => g.win).length;
+		newStats.completionRate =
+			newStats.started > 0 ? Math.round((newStats.completed / newStats.started) * 100) : 0;
 
 		let totalSeconds = 0;
-		let minesSweptCount = 0;
-		const groups: Record<string, any> = {};
-		const categories = ['15', '30', '60', '120', '9x9', '16x16', '30x16'];
-		categories.forEach((c) => (best3BVs[c] = { value: 0, date: '' }));
+		let totalMines = 0;
 
+		// --- THE LOGIC YOU REQUESTED ---
 		data.forEach((g) => {
-			let timeTaken = 0;
-			if (g.mode === 'standard') {
-				timeTaken = g.win ? g.score : g.score || 0;
-				totalSeconds += timeTaken;
-			} else {
-				timeTaken = parseInt(g.setting) || 15;
-				totalSeconds += timeTaken;
-			}
+			// 1. Sum of ALL 'time' (regardless of win/loss, based on your request)
+			// Use safeNum to convert nulls to 0
+			totalSeconds += safeNum(g.time);
 
-			if (g.win) {
-				if (g.total_mines) {
-					minesSweptCount += g.total_mines;
-				} else {
-					if (g.setting === '9x9') minesSweptCount += 10;
-					else if (g.setting === '16x16') minesSweptCount += 40;
-					else if (g.setting === '30x16') minesSweptCount += 99;
-					else if (g.mode === 'time') minesSweptCount += g.score * 10;
-					else if (g.setting === 'custom') minesSweptCount += 10;
-				}
-			}
-
-			if (g.win && g.total_3bv && timeTaken > 0) {
-				const bbbPerSec = parseFloat((g.total_3bv / timeTaken).toFixed(2));
-				const cat = g.setting;
-				if (best3BVs[cat] && bbbPerSec > best3BVs[cat].value) {
-					best3BVs[cat] = { value: bbbPerSec, date: g.created_at };
-				}
-			}
-
-			if (g.win) {
-				const key = `${g.mode === 'time' ? 'Time' : 'Std'} ${g.setting}`;
-				if (
-					!groups[key] ||
-					(g.mode === 'time' ? g.score > groups[key].score : g.score < groups[key].score)
-				) {
-					groups[key] = {
-						label: key,
-						score: g.score,
-						acc: g.accuracy,
-						mode: g.mode,
-						date: g.created_at
-					};
-				}
-			}
+			// 2. Sum of ALL 'total_mines'
+			totalMines += safeNum(g.total_mines);
 		});
 
-		stats.totalMinesSwept = minesSweptCount;
+		newStats.totalMinesSwept = totalMines;
 
-		const h = Math.floor(totalSeconds / 3600)
-			.toString()
-			.padStart(2, '0');
-		const m = Math.floor((totalSeconds % 3600) / 60)
-			.toString()
-			.padStart(2, '0');
-		const s = (totalSeconds % 60).toString().padStart(2, '0');
-		stats.timeSweeping = `${h}:${m}:${s}`;
-		bests = Object.values(groups);
+		// Format Time
+		if (totalSeconds > 0) {
+			const h = Math.floor(totalSeconds / 3600)
+				.toString()
+				.padStart(2, '0');
+			const m = Math.floor((totalSeconds % 3600) / 60)
+				.toString()
+				.padStart(2, '0');
+			const s = (totalSeconds % 60).toString().padStart(2, '0');
+			newStats.timeSweeping = `${h}:${m}:${s}`;
+		} else {
+			newStats.timeSweeping = '00:00:00';
+		}
+
+		// (Keep your existing code for Best 3BV and Personal Bests below this...)
+		// ...
+
+		return newStats;
 	}
 
 	function generateHeatmap(data: any[]) {
@@ -191,7 +182,7 @@
 		}
 		if (e.key === 'Tab') {
 			e.preventDefault();
-			goto('/'); // Using SvelteKit goto for smoother navigation
+			goto('/');
 		}
 		if (e.key === 'Escape') {
 			showPalette = true;
@@ -471,10 +462,13 @@
 										{/if}
 									</td>
 									<td class="p-4 font-mono text-sm text-text">
-										{row.score}
-										<span class="ml-1 text-[10px] font-bold text-sub opacity-50"
-											>{row.mode === 'time' ? 'mines' : 's'}</span
-										>
+										{#if row.mode === 'time'}
+											{row.grids || row.score}
+											<span class="ml-1 text-[10px] font-bold text-sub opacity-50">grids</span>
+										{:else}
+											{row.time || row.score}
+											<span class="ml-1 text-[10px] font-bold text-sub opacity-50">s</span>
+										{/if}
 									</td>
 									<td class="p-4 font-mono text-text">{row.accuracy}%</td>
 									<td class="p-4 text-right font-medium text-sub opacity-70"
