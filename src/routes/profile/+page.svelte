@@ -18,8 +18,7 @@
 	import { currentTheme } from '$lib/themeStore';
 	import { THEMES } from '$lib/themes';
 
-	// --- 1. Helper to force ANY value into a valid number ---
-	// This prevents database nulls/undefineds from turning into NaN
+	// 1. Helper to force ANY value into a valid number (prevents NaN)
 	const safeNum = (val: any) => {
 		if (val === null || val === undefined) return 0;
 		const n = Number(val);
@@ -90,18 +89,11 @@
 
 		if (r) {
 			history = r;
-			// REACTIVITY FIX: Assign the result to stats so Svelte sees the change
 			stats = calculateStats(r);
 			generateHeatmap(r);
 		}
 		loading = false;
 	});
-
-	// Helper to safely convert anything to a number
-	const safeNum = (val: any) => {
-		const n = Number(val);
-		return isNaN(n) ? 0 : n;
-	};
 
 	function calculateStats(data: any[]) {
 		const newStats = {
@@ -118,37 +110,113 @@
 			newStats.started > 0 ? Math.round((newStats.completed / newStats.started) * 100) : 0;
 
 		let totalSeconds = 0;
-		let totalMines = 0;
+		let minesSweptCount = 0;
+		const groups: Record<string, any> = {};
+		const categories = ['15', '30', '60', '120', '9x9', '16x16', '30x16'];
+		categories.forEach((c) => (best3BVs[c] = { value: 0, date: '' }));
 
-		// --- THE LOGIC YOU REQUESTED ---
 		data.forEach((g) => {
-			// 1. Sum of ALL 'time' (regardless of win/loss, based on your request)
-			// Use safeNum to convert nulls to 0
-			totalSeconds += safeNum(g.time);
+			// --- TIME CALCULATION ---
+			let timeTaken = 0;
 
-			// 2. Sum of ALL 'total_mines'
-			totalMines += safeNum(g.total_mines);
+			// 1. Try new 'time' column
+			if (g.time !== undefined && g.time !== null) {
+				timeTaken = safeNum(g.time);
+			}
+			// 2. Fallback for Time Attack (setting is the time)
+			else if (g.mode === 'time') {
+				timeTaken = parseInt(g.setting) || 15;
+			}
+			// 3. Fallback for old Standard games (use 0 if score is gone)
+			else {
+				timeTaken = 0;
+			}
+
+			timeTaken = safeNum(timeTaken);
+			totalSeconds += timeTaken;
+
+			// --- MINES CALCULATION ---
+			if (g.win) {
+				let mines = safeNum(g.total_mines);
+
+				// If DB value is missing (old data), estimate it
+				if (mines === 0) {
+					if (g.mode === 'standard') {
+						if (g.setting === '9x9') mines = 10;
+						else if (g.setting === '16x16') mines = 40;
+						else if (g.setting === '30x16') mines = 99;
+						else mines = 10;
+					} else {
+						// Time Mode: grids * 10 (Use 'grids' column only)
+						const grids = safeNum(g.grids);
+						mines = grids * 10;
+					}
+				}
+				minesSweptCount += mines;
+			}
+
+			// --- BEST 3BV ---
+			if (g.win && g.total_3bv && timeTaken > 0) {
+				const bbbPerSec = parseFloat((g.total_3bv / timeTaken).toFixed(2));
+				const cat = g.setting;
+				if (best3BVs[cat] && bbbPerSec > best3BVs[cat].value) {
+					best3BVs[cat] = { value: bbbPerSec, date: g.created_at };
+				}
+			}
+
+			// --- PERSONAL BESTS ---
+			if (g.win) {
+				const key = `${g.mode === 'time' ? 'Time' : 'Std'} ${g.setting}`;
+				let scoreValue = 0;
+				if (g.mode === 'time') {
+					scoreValue = safeNum(g.grids);
+				} else {
+					scoreValue = safeNum(g.time) || 9999;
+				}
+
+				if (!groups[key]) {
+					groups[key] = {
+						label: key,
+						score: scoreValue,
+						acc: g.accuracy,
+						mode: g.mode,
+						date: g.created_at
+					};
+				} else {
+					const isBetter =
+						g.mode === 'time' ? scoreValue > groups[key].score : scoreValue < groups[key].score;
+
+					if (isBetter) {
+						groups[key] = {
+							label: key,
+							score: scoreValue,
+							acc: g.accuracy,
+							mode: g.mode,
+							date: g.created_at
+						};
+					}
+				}
+			}
 		});
 
-		newStats.totalMinesSwept = totalMines;
+		newStats.totalMinesSwept = minesSweptCount;
 
-		// Format Time
-		if (totalSeconds > 0) {
-			const h = Math.floor(totalSeconds / 3600)
+		// --- FORMAT TIME ---
+		const safeTotal = safeNum(totalSeconds);
+		if (safeTotal > 0) {
+			const h = Math.floor(safeTotal / 3600)
 				.toString()
 				.padStart(2, '0');
-			const m = Math.floor((totalSeconds % 3600) / 60)
+			const m = Math.floor((safeTotal % 3600) / 60)
 				.toString()
 				.padStart(2, '0');
-			const s = (totalSeconds % 60).toString().padStart(2, '0');
+			const s = (safeTotal % 60).toString().padStart(2, '0');
 			newStats.timeSweeping = `${h}:${m}:${s}`;
 		} else {
 			newStats.timeSweeping = '00:00:00';
 		}
 
-		// (Keep your existing code for Best 3BV and Personal Bests below this...)
-		// ...
-
+		bests = Object.values(groups);
 		return newStats;
 	}
 
@@ -463,10 +531,10 @@
 									</td>
 									<td class="p-4 font-mono text-sm text-text">
 										{#if row.mode === 'time'}
-											{row.grids || row.score}
+											{row.grids || 0}
 											<span class="ml-1 text-[10px] font-bold text-sub opacity-50">grids</span>
 										{:else}
-											{row.time || row.score}
+											{row.time || 0}
 											<span class="ml-1 text-[10px] font-bold text-sub opacity-50">s</span>
 										{/if}
 									</td>
