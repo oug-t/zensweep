@@ -54,7 +54,7 @@
 
 ## About The Project
 
-[![zsweep Screenshot](static/screenshot.png)](https://zsweep.com)
+[![zsweep Screenshot](static/docs/screenshot.png)](https://zsweep.com)
 
 **zsweep** is a modern reimagining of Minesweeper, inspired by the "Monkeytype" aesthetic. It strips away the clutter of traditional Windows-95 clones to focus purely on speed, accuracy, and flow state.
 
@@ -85,93 +85,127 @@ To get a local copy up and running for development or contribution, follow these
 * npm
   ```sh
   npm install npm@latest -g
-Installation
+
+### Installation
 Clone the repo
 
-Bash
+```Bash
 
 git clone [https://github.com/oug-t/zsweep.git](https://github.com/oug-t/zsweep.git)
 Install NPM packages
+```
 
-Bash
+```Bash
 
 npm install
 Setup Environment Variables Create a .env file in the root directory and add your Supabase credentials:
+```
 
-Code snippet
+```Code snippet
 
 PUBLIC_SUPABASE_URL=your_supabase_url
 PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 Run the development server
+```
 
-Bash
+```Bash
 
 npm run dev
+```
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-Features
-🎮 Game Modes
-Time Mode: Clear as many grids as possible within a set time limit (15s, 30s, 60s).
+## Features
 
-Standard Mode: Classic Minesweeper pacing and rules (9x9, 16x16, 30x16).
 
-📊 Stats & Progression
-3BV/s Tracking: Measures the theoretical difficulty of a board divided by time.
+### 🎮 Game Modes
+- Time Mode: Clear as many grids as possible within a set time limit (15s, 30s, 60s).
 
-Heatmap: Visualizes your activity over the last year (GitHub style).
+- Standard Mode: Classic Minesweeper pacing and rules (9x9, 16x16, 30x16).
 
-Estimated Mines Swept: Tracks your total career "damage."
+### 📊 Stats & Progression
+- 3BV/s Tracking: Measures the theoretical difficulty of a board divided by time.
 
-🎨 Theming
-Built-in Command Palette (Cmd+K or Esc) to switch themes instantly.
+- Heatmap: Visualizes your activity over the last year (GitHub style).
 
-"Explosion" particle effects on game over.
+- Estimated Mines Swept: Tracks your total career "damage."
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+### 🎨 Theming
+- Built-in Command Palette (Cmd+K or Esc) to switch themes instantly.
 
-Contributing
-We are actively looking for contributors!
-
-Contributions are what make the open source community such an amazing place to learn, inspire, and create. Whether you are fixing a typo, optimizing the 3BV algorithm, or adding a new theme, your help is greatly appreciated.
-
-🏆 Contributor Perk: All contributors who have a PR merged will be permanently listed on the zsweep "About" page as a thank you for helping build this project.
-
-If you have a suggestion that would make this better:
-
-Fork the Project
-
-Create your Feature Branch (git checkout -b feature/AmazingFeature)
-
-Commit your Changes (git commit -m 'Add some AmazingFeature')
-
-Push to the Branch (git push origin feature/AmazingFeature)
-
-Open a Pull Request
-
-Good First Issues: Check out the Issues tab for tickets labeled good first issue if you are new to the codebase!
+- "Explosion" particle effects on game over.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-Top contributors:
-<a href="https://www.google.com/search?q=https://github.com/oug-t/zsweep/graphs/contributors"> <img src="https://www.google.com/search?q=https://contrib.rocks/image%3Frepo%3DYOUR_USERNAME/zsweep" alt="contrib.rocks image" /> </a>
+## Contributing
+- We are actively looking for contributors!
 
-License
-Distributed under the GPLv3 License. See LICENSE for more information.
+- Contributions are what make the open source community such an amazing place to learn, inspire, and create. Whether you are fixing a typo, optimizing the 3BV algorithm, or adding a new theme, your help is greatly appreciated.
+
+### 🏆 Contributor Perk: All contributors who have a PR merged will be permanently listed on the zsweep "About" page as a thank you for helping build this project.
+
+- If you have a suggestion that would make this better:
+
+### Fork the Project
+
+- Create your Feature Branch (git checkout -b feature/AmazingFeature)
+
+- Commit your Changes (git commit -m 'Add some AmazingFeature')
+
+- Push to the Branch (git push origin feature/AmazingFeature)
+
+- Open a Pull Request
+
+- Good First Issues: Check out the Issues tab for tickets labeled good first issue if you are new to the codebase!
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-Contact
+
+## Contributors
+
+Be the first to contribute!
+Check out issues labeled 'good first issue' to get started.
+
+<a href="https://github.com/oug-t/zsweep/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=oug-t/zsweep" alt="Contributors" />
+</a>
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## License
+Distributed under the GPLv3 License.
+See `LICENSE` for more information.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Contact
 Tommy Guo - tommyguo024@outlook.com
 
 Project Link: https://github.com/oug-t/zsweep
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-Acknowledgments
-Monkeytype for the visual inspiration and philosophy.
+## Acknowledgments
 
-Supabase for making the backend effortless.
+- Monkeytype for the visual inspiration and philosophy.
 
-Lucide Icons for the beautiful SVG set.
+- Supabase for making the backend effortless.
+
+- Lucide Icons for the beautiful SVG set.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- MARKDOWN LINKS & IMAGES -->
+[contributors-shield]: https://img.shields.io/github/contributors/oug-t/zsweep.svg?style=flat
+[contributors-url]: https://github.com/oug-t/zsweep/graphs/contributors
+
+[forks-shield]: https://img.shields.io/github/forks/oug-t/zsweep.svg?style=flat
+[forks-url]: https://github.com/oug-t/zsweep/network/members
+
+[stars-shield]: https://img.shields.io/github/stars/oug-t/zsweep.svg?style=flat
+[stars-url]: https://github.com/oug-t/zsweep/stargazers
+
+[issues-shield]: https://img.shields.io/github/issues/oug-t/zsweep.svg?style=flat
+[issues-url]: https://github.com/oug-t/zsweep/issues
+
+[license-shield]: https://img.shields.io/github/license/oug-t/zsweep.svg?style=flat
+[license-url]: https://github.com/oug-t/zsweep/blob/main/LICENSE
