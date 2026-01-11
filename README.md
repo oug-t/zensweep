@@ -9,7 +9,7 @@
 <br />
 <div align="center">
   <a href="https://zsweep.com">
-    <img src="static/favicon.png" alt="zsweep logo" width="80" height="80">
+    <img src="static/images/zee.png" alt="zsweep logo" width="80" height="80">
   </a>
 
 <h3 align="center">zsweep</h3>
