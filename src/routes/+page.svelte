@@ -10,9 +10,20 @@
 	import { onMount, onDestroy } from 'svelte';
 	import confetti from 'canvas-confetti';
 	import {
-		Flag, Bomb, Grid3x3, Wrench, Flame, Flower2, User,
-		LogOut, Clock, Hourglass, Infinity as InfinityIcon,
-		Palette, Search, ChevronRight
+		Flag,
+		Bomb,
+		Grid3x3,
+		Wrench,
+		Flame,
+		Flower2,
+		User,
+		LogOut,
+		Clock,
+		Hourglass,
+		Infinity as InfinityIcon,
+		Palette,
+		Search,
+		ChevronRight
 	} from 'lucide-svelte';
 	import ResultView from '$lib/components/ResultView.svelte';
 	import { supabase } from '$lib/supabase';
@@ -35,16 +46,16 @@
 	let timeLimit = 15;
 	let customTime = 60;
 	let isCustomTime = false;
-	
+
 	// --- VIM ---
 	let cursor = { r: 0, c: 0 };
-    let vimBuffer = '';
-    let lastKey = '';
-    let lastKeyTime = 0;
-    let isSearchMode = false;
-    let searchTerm = '';
-    let searchMatches: {r: number, c: number}[] = [];
-    let matchIndex = -1;
+	let vimBuffer = '';
+	let lastKey = '';
+	let lastKeyTime = 0;
+	let isSearchMode = false;
+	let searchTerm = '';
+	let searchMatches: { r: number; c: number }[] = [];
+	let matchIndex = -1;
 
 	let showPalette = false;
 	let paletteView: 'root' | 'themes' = 'root';
@@ -154,9 +165,9 @@
 		grid = createGrid(currentSize.rows, currentSize.cols);
 		minesLeft = currentSize.mines;
 		// Reset cursor to center
-		cursor = { 
-			r: Math.floor(currentSize.rows / 2), 
-			c: Math.floor(currentSize.cols / 2) 
+		cursor = {
+			r: Math.floor(currentSize.rows / 2),
+			c: Math.floor(currentSize.cols / 2)
 		};
 	}
 
@@ -183,13 +194,13 @@
 		isWin = win;
 		clearInterval(timerInterval);
 		if (clicksThisSecond > 0) clickHistory.push(clicksThisSecond);
-		
+
 		// Stat calculations...
 		if (gameMode === 'standard') {
 			gridsPlayed = 1;
 			sessionTotalMines = currentSize.mines;
-			totalCellsRevealed = win 
-				? (currentSize.rows * currentSize.cols - currentSize.mines) 
+			totalCellsRevealed = win
+				? currentSize.rows * currentSize.cols - currentSize.mines
 				: countCurrentSafeOpen();
 		} else {
 			if (win) {
@@ -264,7 +275,8 @@
 		const cell = grid[r][c];
 		let flagCount = 0;
 		DIRECTIONS.forEach(([dr, dc]) => {
-			const nr = r + dr, nc = c + dc;
+			const nr = r + dr,
+				nc = c + dc;
 			if (grid[nr]?.[nc]?.isFlagged) flagCount++;
 		});
 
@@ -272,7 +284,8 @@
 			totalClicks++;
 			clicksThisSecond++;
 			DIRECTIONS.forEach(([dr, dc]) => {
-				const nr = r + dr, nc = c + dc;
+				const nr = r + dr,
+					nc = c + dc;
 				const neighbor = grid[nr]?.[nc];
 				if (neighbor && !neighbor.isOpen && !neighbor.isFlagged) {
 					handleClick(nr, nc);
@@ -281,12 +294,16 @@
 		}
 	}
 
-function handleInput(e: KeyboardEvent) {
+	function handleInput(e: KeyboardEvent) {
 		// 1. Palette logic (Highest Priority)
 		if (showPalette) {
 			if (e.key === 'Escape') {
-				if (paletteView === 'themes') { paletteView = 'root'; searchQuery = ''; }
-				else showPalette = false;
+				if (paletteView === 'themes') {
+					paletteView = 'root';
+					searchQuery = '';
+				} else {
+					showPalette = false;
+				}
 			}
 			return;
 		}
@@ -294,19 +311,16 @@ function handleInput(e: KeyboardEvent) {
 		// 2. SEARCH MODE INTERCEPTION (Trap inputs when typing query)
 		if (isSearchMode) {
 			e.preventDefault();
-			
+
 			if (e.key === 'Escape') {
 				isSearchMode = false;
 				searchTerm = '';
-			}
-			else if (e.key === 'Enter') {
+			} else if (e.key === 'Enter') {
 				executeSearch();
 				isSearchMode = false;
-			}
-			else if (e.key === 'Backspace') {
+			} else if (e.key === 'Backspace') {
 				searchTerm = searchTerm.slice(0, -1);
-			}
-			else if (/^[0-8]$/.test(e.key)) {
+			} else if (/^[0-8]$/.test(e.key)) {
 				searchTerm = e.key; // Single digit search is usually enough, overwrites previous
 			}
 			return;
@@ -317,7 +331,11 @@ function handleInput(e: KeyboardEvent) {
 		if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) return;
 		if (e.metaKey || e.ctrlKey || e.altKey) return;
 
-		if (e.key === 'Tab') { e.preventDefault(); fullReset(); return; }
+		if (e.key === 'Tab') {
+			e.preventDefault();
+			fullReset();
+			return;
+		}
 		if (e.key === 'Escape') {
 			e.preventDefault();
 			if (vimBuffer.length > 0) vimBuffer = '';
@@ -328,17 +346,24 @@ function handleInput(e: KeyboardEvent) {
 
 		// --- gg LOGIC ---
 		const now = Date.now();
-		if (e.key === 'g' && lastKey === 'g' && (now - lastKeyTime < 500)) {
-			cursor = { r: 0, c: cursor.c }; lastKey = ''; vimBuffer = ''; return;
+		if (e.key === 'g' && lastKey === 'g' && now - lastKeyTime < 500) {
+			cursor = { r: 0, c: cursor.c };
+			lastKey = '';
+			vimBuffer = '';
+			return;
 		}
-		if (e.key === 'g') { lastKey = 'g'; lastKeyTime = now; return; }
+		if (e.key === 'g') {
+			lastKey = 'g';
+			lastKeyTime = now;
+			return;
+		}
 
 		// --- MAIN HANDLER ---
 		const action = handleVimKey(e.key);
 
 		if (action) {
 			e.preventDefault();
-			
+
 			if (action.type === 'START_SEARCH') {
 				isSearchMode = true;
 				searchTerm = '';
@@ -361,27 +386,43 @@ function handleInput(e: KeyboardEvent) {
 			}
 
 			// ... [EXISTING VIM LOGIC BELOW UNCHANGED] ...
-			if (action.type === 'DIGIT') { vimBuffer += action.value; return; }
+			if (action.type === 'DIGIT') {
+				vimBuffer += action.value;
+				return;
+			}
 			if (action.type === 'ZERO') {
 				if (vimBuffer.length > 0) vimBuffer += '0';
 				else cursor = { r: cursor.r, c: 0 };
 				return;
 			}
-			
+
 			// Simple Actions
-			if (action.type === 'START_ROW') { cursor = { r: cursor.r, c: 0 }; vimBuffer = ''; return; }
-			if (action.type === 'GO_BOTTOM') { cursor = { r: currentSize.rows - 1, c: cursor.c }; vimBuffer = ''; return; }
+			if (action.type === 'START_ROW') {
+				cursor = { r: cursor.r, c: 0 };
+				vimBuffer = '';
+				return;
+			}
+			if (action.type === 'GO_BOTTOM') {
+				cursor = { r: currentSize.rows - 1, c: cursor.c };
+				vimBuffer = '';
+				return;
+			}
 
 			// Buffered Actions
 			const multiplier = vimBuffer.length > 0 ? parseInt(vimBuffer) : 1;
-			
+
 			if (action.type === 'MOVE_CURSOR') {
-				const newR = Math.max(0, Math.min(currentSize.rows - 1, cursor.r + (action.dy * multiplier)));
-				const newC = Math.max(0, Math.min(currentSize.cols - 1, cursor.c + (action.dx * multiplier)));
+				const newR = Math.max(
+					0,
+					Math.min(currentSize.rows - 1, cursor.r + action.dy * multiplier)
+				);
+				const newC = Math.max(
+					0,
+					Math.min(currentSize.cols - 1, cursor.c + action.dx * multiplier)
+				);
 				cursor = { r: newR, c: newC };
 				vimBuffer = '';
-			}
-			else if (action.type === 'NEXT_UNREVEALED') {
+			} else if (action.type === 'NEXT_UNREVEALED') {
 				let steps = multiplier;
 				let currentC = cursor.c;
 				while (steps > 0 && currentC < currentSize.cols - 1) {
@@ -390,8 +431,7 @@ function handleInput(e: KeyboardEvent) {
 				}
 				cursor = { r: cursor.r, c: currentC };
 				vimBuffer = '';
-			}
-			else if (action.type === 'PREV_UNREVEALED') {
+			} else if (action.type === 'PREV_UNREVEALED') {
 				let steps = multiplier;
 				let currentC = cursor.c;
 				while (steps > 0 && currentC > 0) {
@@ -400,10 +440,13 @@ function handleInput(e: KeyboardEvent) {
 				}
 				cursor = { r: cursor.r, c: currentC };
 				vimBuffer = '';
-			}
-			else if (action.type === 'FLAG') { toggleFlag(cursor.r, cursor.c); vimBuffer = ''; }
-			else if (action.type === 'REVEAL') { handleClick(cursor.r, cursor.c); vimBuffer = ''; }
-			else if (action.type === 'SMART') {
+			} else if (action.type === 'FLAG') {
+				toggleFlag(cursor.r, cursor.c);
+				vimBuffer = '';
+			} else if (action.type === 'REVEAL') {
+				handleClick(cursor.r, cursor.c);
+				vimBuffer = '';
+			} else if (action.type === 'SMART') {
 				const cell = grid[cursor.r][cursor.c];
 				if (!cell.isOpen) toggleFlag(cursor.r, cursor.c);
 				else attemptChord(cursor.r, cursor.c);
@@ -412,16 +455,16 @@ function handleInput(e: KeyboardEvent) {
 		}
 	}
 
-    function executeSearch() {
+	function executeSearch() {
 		if (!searchTerm) return;
 		const targetVal = parseInt(searchTerm);
-		
+
 		searchMatches = [];
-		
+
 		for (let r = 0; r < currentSize.rows; r++) {
 			for (let c = 0; c < currentSize.cols; c++) {
 				const cell = grid[r][c];
-				
+
 				// UPDATE: Special handling for 0
 				if (targetVal === 0) {
 					// 0 = Search for Unrevealed Cells (Closed)
@@ -436,9 +479,11 @@ function handleInput(e: KeyboardEvent) {
 				}
 			}
 		}
-		
+
 		if (searchMatches.length > 0) {
-			matchIndex = searchMatches.findIndex(m => (m.r > cursor.r) || (m.r === cursor.r && m.c >= cursor.c));
+			matchIndex = searchMatches.findIndex(
+				(m) => m.r > cursor.r || (m.r === cursor.r && m.c >= cursor.c)
+			);
 			if (matchIndex === -1) matchIndex = 0;
 			cursor = searchMatches[matchIndex];
 		}
@@ -446,23 +491,29 @@ function handleInput(e: KeyboardEvent) {
 
 	function countCurrentSafeOpen() {
 		let count = 0;
-		for (let row of grid) for (let cell of row) if (cell.isOpen && !cell.isMine) count++;
+		for (let row of grid)
+			for (let cell of row) if (cell.isOpen && !cell.isMine) count++;
 		return count;
 	}
 	function countWrongFlags() {
 		let wrong = 0;
-		for (let row of grid) for (let cell of row) if (cell.isFlagged && !cell.isMine) wrong++;
+		for (let row of grid)
+			for (let cell of row) if (cell.isFlagged && !cell.isMine) wrong++;
 		return wrong;
 	}
 	function calculateAccuracy() {
 		if (sessionTotalMines === 0) return 0;
-		return Math.max(0, Math.round(((sessionTotalMines - sessionErrors) / sessionTotalMines) * 100));
+		return Math.max(
+			0,
+			Math.round(((sessionTotalMines - sessionErrors) / sessionTotalMines) * 100)
+		);
 	}
 	function checkWin() {
 		let safeCellsOpen = 0;
 		const totalSafeCells = currentSize.rows * currentSize.cols - currentSize.mines;
-		for (let row of grid) for (let cell of row) if (cell.isOpen && !cell.isMine) safeCellsOpen++;
-		
+		for (let row of grid)
+			for (let cell of row) if (cell.isOpen && !cell.isMine) safeCellsOpen++;
+
 		if (safeCellsOpen === totalSafeCells) {
 			if (gameMode === 'time') {
 				gridsSolved++;
@@ -481,15 +532,31 @@ function handleInput(e: KeyboardEvent) {
 
 	// --- SUPABASE & EFFECTS ---
 	function triggerExplosion() {
-		confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 }, colors: ['#ef4444', '#dc2626', '#b91c1c'], disableForReducedMotion: true });
+		confetti({
+			particleCount: 150,
+			spread: 100,
+			origin: { y: 0.6 },
+			colors: ['#ef4444', '#dc2626', '#b91c1c'],
+			disableForReducedMotion: true
+		});
 	}
 	function triggerWin() {
-		confetti({ particleCount: 200, spread: 120, origin: { y: 0.6 }, colors: ['#10b981', '#34d399', '#f59e0b'], disableForReducedMotion: true });
+		confetti({
+			particleCount: 200,
+			spread: 120,
+			origin: { y: 0.6 },
+			colors: ['#10b981', '#34d399', '#f59e0b'],
+			disableForReducedMotion: true
+		});
 	}
 
 	onMount(async () => {
-		const { data: { session } } = await supabase.auth.getSession();
-		if (session?.user) currentUser = session.user.user_metadata.full_name || session.user.email?.split('@')[0];
+		const {
+			data: { session }
+		} = await supabase.auth.getSession();
+		if (session?.user)
+			currentUser =
+				session.user.user_metadata.full_name || session.user.email?.split('@')[0];
 		fullReset();
 	});
 
@@ -500,11 +567,15 @@ function handleInput(e: KeyboardEvent) {
 	}
 
 	async function saveResult(win: boolean) {
-		const { data: { user } } = await supabase.auth.getUser();
+		const {
+			data: { user }
+		} = await supabase.auth.getUser();
 		let timeTaken = gameMode === 'standard' ? timer : Math.max(0, timeLimit - timer);
 		let gridsValue = gameMode === 'standard' ? (win ? 1 : 0) : gridsSolved;
-		let minesSwept = win 
-			? (gameMode === 'standard' ? currentSize.mines : gridsSolved * currentSize.mines)
+		let minesSwept = win
+			? gameMode === 'standard'
+				? currentSize.mines
+				: gridsSolved * currentSize.mines
 			: 0;
 
 		const { error } = await supabase.from('game_results').insert({
@@ -523,53 +594,143 @@ function handleInput(e: KeyboardEvent) {
 
 <svelte:window on:keydown={handleInput} on:mouseup={() => (isMouseDown = false)} />
 
-<div class="relative flex min-h-screen flex-col items-center bg-bg font-mono text-text transition-colors duration-300">
-	<div class="animate-in fade-in slide-in-from-top-4 mb-0 flex w-full max-w-5xl items-center justify-between p-8 duration-500">
+<div
+	class="relative flex min-h-screen flex-col items-center bg-bg font-mono text-text transition-colors duration-300"
+>
+	<div
+		class="animate-in fade-in slide-in-from-top-4 mb-0 flex w-full max-w-5xl items-center justify-between p-8 duration-500"
+	>
 		<div class="flex items-center gap-4 transition-all duration-300">
-			<a href="{base}/about" class="group flex select-none items-center gap-3 transition-all {gameState === 'playing' ? 'pointer-events-none opacity-50 grayscale' : 'hover:opacity-80'}">
-				<Bomb size={28} strokeWidth={2.5} class="transition-transform duration-300 group-hover:scale-110 {gameState === 'playing' ? 'text-sub' : 'text-main'}" />
+			<a
+				href="{base}/"
+				class="group flex select-none items-center gap-3 transition-all {gameState ===
+				'playing'
+					? 'pointer-events-none opacity-50 grayscale'
+					: 'hover:opacity-80'}"
+			>
+				<Bomb
+					size={28}
+					strokeWidth={2.5}
+					class="transition-transform duration-300 group-hover:scale-110 {gameState ===
+					'playing'
+						? 'text-sub'
+						: 'text-main'}"
+				/>
 				<h1 class="font-mono text-3xl font-black leading-none tracking-tighter text-text">
-					z<span class={gameState === 'playing' ? 'text-text' : 'text-main'}>sweep</span>
+					z<span class={gameState === 'playing' ? 'text-text' : 'text-main'}
+						>sweep</span
+					>
 				</h1>
 			</a>
+
+			<a
+				href="{base}/about"
+				class="text-sub transition-all duration-300 hover:text-text {gameState ===
+				'playing'
+					? 'pointer-events-none opacity-0'
+					: 'opacity-100'}"
+				title="About"
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="20"
+					height="20"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path
+						d="M12 8h.01"
+					/></svg
+				>
+			</a>
 		</div>
-		<div class="flex items-center gap-6 text-sm transition-opacity duration-300 {gameState === 'playing' ? 'pointer-events-none opacity-0' : 'opacity-100'}">
+
+		<div
+			class="flex items-center gap-6 text-sm transition-opacity duration-300 {gameState ===
+			'playing'
+				? 'pointer-events-none opacity-0'
+				: 'opacity-100'}"
+		>
 			{#if currentUser}
 				<div class="group relative z-20">
-					<button class="flex items-center gap-2 rounded px-3 py-1.5 text-main transition-all hover:bg-sub/10">
-						<User size={16} /><span class="font-bold">{currentUser}</span>
+					<button
+						class="flex items-center gap-2 rounded px-3 py-1.5 text-main transition-all hover:bg-sub/10"
+					>
+						<User size={16} />
+						<span class="font-bold">{currentUser}</span>
 					</button>
-					<div class="invisible absolute right-0 top-full pt-2 opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100">
-						<div class="flex min-w-[160px] flex-col rounded border border-sub/20 bg-bg p-1 font-mono text-sm shadow-xl">
-							<a href="{base}/profile" class="flex items-center gap-2 rounded px-3 py-2 text-sub transition-colors hover:bg-sub/10 hover:text-text">
+					<div
+						class="invisible absolute right-0 top-full pt-2 opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100"
+					>
+						<div
+							class="flex min-w-[160px] flex-col rounded border border-sub/20 bg-bg p-1 font-mono text-sm shadow-xl"
+						>
+							<a
+								href="{base}/profile"
+								class="flex items-center gap-2 rounded px-3 py-2 text-sub transition-colors hover:bg-sub/10 hover:text-text"
+							>
 								<User size={14} /><span>Profile</span>
 							</a>
 							<div class="my-1 h-[1px] bg-sub/10"></div>
-							<button on:click={handleLogout} class="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sub transition-colors hover:bg-error/10 hover:text-error">
+							<button
+								on:click={handleLogout}
+								class="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sub transition-colors hover:bg-error/10 hover:text-error"
+							>
 								<LogOut size={14} /><span>Sign Out</span>
 							</button>
 						</div>
 					</div>
 				</div>
 			{:else}
-				<a href="/login" class="flex h-8 w-8 items-center justify-center rounded text-sub hover:bg-sub/10 hover:text-text"><User size={18} /></a>
+				<a
+					href="/login"
+					class="flex h-8 w-8 items-center justify-center rounded text-sub hover:bg-sub/10 hover:text-text"
+					><User size={18} /></a
+				>
 			{/if}
 		</div>
 	</div>
 
 	{#if gameState === 'finished'}
-		<ResultView 
-			win={isWin} time={gameMode === 'time' ? timeLimit - timer : timer} cells={totalCellsRevealed}
-			{totalClicks} history={clickHistory} accuracy={finalAccuracy} sizeLabel={currentSize.label}
-			{gridsSolved} {gridsPlayed} mode={gameMode} total3BV={session3BV} on:restart={fullReset}
+		<ResultView
+			win={isWin}
+			time={gameMode === 'time' ? timeLimit - timer : timer}
+			cells={totalCellsRevealed}
+			{totalClicks}
+			history={clickHistory}
+			accuracy={finalAccuracy}
+			sizeLabel={currentSize.label}
+			{gridsSolved}
+			{gridsPlayed}
+			mode={gameMode}
+			total3BV={session3BV}
+			on:restart={fullReset}
 		/>
 	{:else}
-		<div class="mb-8 flex select-none items-center gap-6 rounded-lg bg-sub/10 px-4 py-2 text-xs transition-all duration-300 {gameState === 'playing' ? 'pointer-events-none opacity-0' : 'opacity-100'}">
+		<div
+			class="mb-8 flex select-none items-center gap-6 rounded-lg bg-sub/10 px-4 py-2 text-xs transition-all duration-300 {gameState ===
+			'playing'
+				? 'pointer-events-none opacity-0'
+				: 'opacity-100'}"
+		>
 			<div class="flex items-center gap-3">
-				<button class="flex items-center gap-2 transition-colors {gameMode === 'time' ? 'font-bold text-main' : 'text-sub'}" on:click={() => setMode('time')}>
+				<button
+					class="flex items-center gap-2 transition-colors {gameMode === 'time'
+						? 'font-bold text-main'
+						: 'text-sub'}"
+					on:click={() => setMode('time')}
+				>
 					<Hourglass size={12} /><span>time</span>
 				</button>
-				<button class="flex items-center gap-2 transition-colors {gameMode === 'standard' ? 'font-bold text-main' : 'text-sub'}" on:click={() => setMode('standard')}>
+				<button
+					class="flex items-center gap-2 transition-colors {gameMode === 'standard'
+						? 'font-bold text-main'
+						: 'text-sub'}"
+					on:click={() => setMode('standard')}
+				>
 					<InfinityIcon size={12} /><span>standard</span>
 				</button>
 			</div>
@@ -577,9 +738,17 @@ function handleInput(e: KeyboardEvent) {
 			<div class="flex items-center gap-3">
 				<Grid3x3 size={12} class="text-sub opacity-50" />
 				{#each GRID_SIZES as size}
-					<button class="{currentSize.label === size.label ? 'font-bold text-main' : 'text-sub hover:text-text'}" on:click={() => setSize(size)}>{size.label}</button>
+					<button
+						class="{currentSize.label === size.label
+							? 'font-bold text-main'
+							: 'text-sub hover:text-text'}"
+						on:click={() => setSize(size)}>{size.label}</button
+					>
 				{/each}
-				<button class="text-sub hover:text-text" on:click={openPalette}><Wrench size={12} /></button>
+				<button
+					class="text-sub hover:text-text"
+					on:click={openPalette}><Wrench size={12} /></button
+				>
 			</div>
 		</div>
 
@@ -590,37 +759,52 @@ function handleInput(e: KeyboardEvent) {
 					<span class="text-3xl font-bold leading-none text-main">{timer}</span>
 				</div>
 				<div class="flex w-12 flex-col text-right">
-					<span class="text-[10px] font-bold uppercase text-sub opacity-50">mines</span>
+					<span class="text-[10px] font-bold uppercase text-sub opacity-50"
+						>mines</span
+					>
 					<span class="text-3xl font-bold leading-none">{minesLeft}</span>
 				</div>
 			</div>
 
-			<div class="grid select-none gap-1 bg-bg transition-all duration-300"
+			<div
+				class="grid select-none gap-1 bg-bg transition-all duration-300"
 				style="grid-template-columns: repeat({currentSize.cols}, minmax(0, 1fr));"
-				on:mousedown={() => { if (gameState === 'playing') isMouseDown = true; }}>
+				on:mousedown={() => {
+					if (gameState === 'playing') isMouseDown = true;
+				}}
+			>
 				{#each grid as row, r (r)}
 					{#each row as cell, c (c)}
 						<button
 							class="flex h-8 w-8 items-center justify-center rounded-sm text-sm font-bold transition-all duration-75 focus:outline-none
 							{cell.isOpen ? 'bg-sub/10' : 'bg-sub/30 hover:bg-sub/50'}
 							{cell.isMine && cell.isOpen ? 'bg-error text-bg' : ''}
-							{cell.isMine && !cell.isOpen && gameState === 'finished' ? 'bg-error/50 opacity-50' : ''}
+							{cell.isMine && !cell.isOpen && gameState === 'finished'
+								? 'bg-error/50 opacity-50'
+								: ''}
 							
-							{(cursor.r === r && cursor.c === c) ? 'z-10 ring-2 ring-main/50 brightness-110' : ''}"
-
+							{cursor.r === r && cursor.c === c
+								? 'z-10 ring-2 ring-main/50 brightness-110'
+								: ''}"
 							on:click={() => handleClick(r, c)}
 							on:contextmenu|preventDefault={() => toggleFlag(r, c)}
-							on:mouseenter={() => { cursor = { r, c }; }}
+							on:mouseenter={() => {
+								cursor = { r, c };
+							}}
 						>
 							{#if cell.isOpen}
 								{#if cell.isMine}
 									<Bomb size={16} />
 								{:else if cell.neighborCount > 0}
-									<span class={
-										cell.neighborCount === 1 ? 'text-blue-400' : 
-										cell.neighborCount === 2 ? 'text-green-400' : 
-										cell.neighborCount === 3 ? 'text-red-400' : 'text-purple-400'
-									}>{cell.neighborCount}</span>
+									<span
+										class={cell.neighborCount === 1
+											? 'text-blue-400'
+											: cell.neighborCount === 2
+												? 'text-green-400'
+												: cell.neighborCount === 3
+													? 'text-red-400'
+													: 'text-purple-400'}>{cell.neighborCount}</span
+									>
 								{/if}
 							{:else if cell.isFlagged}
 								<span class="text-error"><Flag size={14} fill="currentColor" /></span>
@@ -633,33 +817,63 @@ function handleInput(e: KeyboardEvent) {
 	{/if}
 
 	{#if showPalette}
-		<div class="animate-in fade-in fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm duration-150" on:mousedown|self={() => (showPalette = false)}>
-			<div class="mt-[15vh] flex max-h-[50vh] w-[450px] flex-col overflow-hidden rounded-lg border border-sub/20 bg-bg font-mono text-text shadow-2xl">
+		<div
+			class="animate-in fade-in fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm duration-150"
+			on:mousedown|self={() => (showPalette = false)}
+		>
+			<div
+				class="mt-[15vh] flex max-h-[50vh] w-[450px] flex-col overflow-hidden rounded-lg border border-sub/20 bg-bg font-mono text-text shadow-2xl"
+			>
 				<div class="flex items-center gap-3 border-b border-sub/10 p-3">
 					<Search size={14} class="text-main" />
 					<input
 						bind:this={searchInputEl}
 						bind:value={searchQuery}
 						type="text"
-						placeholder={paletteView === 'root' ? 'Type to search...' : 'Search themes...'}
+						placeholder={paletteView === 'root'
+							? 'Type to search...'
+							: 'Search themes...'}
 						class="h-full w-full border-none bg-transparent text-xs text-text outline-none placeholder:text-sub/50"
-						on:keydown={(e) => { if (e.key === 'Backspace' && searchQuery === '' && paletteView === 'themes') paletteView = 'root'; }}
+						on:keydown={(e) => {
+							if (
+								e.key === 'Backspace' &&
+								searchQuery === '' &&
+								paletteView === 'themes'
+							)
+								paletteView = 'root';
+						}}
 					/>
 				</div>
 				<div class="overflow-y-auto p-1.5">
 					{#if paletteView === 'root'}
 						{#each filteredCommands as cmd}
-							<button class="group flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs transition-colors hover:bg-sub/10" on:click={cmd.action}>
+							<button
+								class="group flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs transition-colors hover:bg-sub/10"
+								on:click={cmd.action}
+							>
 								<div class="flex items-center gap-3">
-									<svelte:component this={cmd.icon} size={12} class="text-sub group-hover:text-main" />
+									<svelte:component
+										this={cmd.icon}
+										size={12}
+										class="text-sub group-hover:text-main"
+									/>
 									<span class="text-sub/80 group-hover:text-text">{cmd.label}</span>
 								</div>
-								<ChevronRight size={12} class="text-sub/40 group-hover:text-main" />
+								<ChevronRight
+									size={12}
+									class="text-sub/40 group-hover:text-main"
+								/>
 							</button>
 						{/each}
 					{:else if paletteView === 'themes'}
 						{#each filteredThemes as theme}
-							<button class="group flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs transition-colors hover:bg-sub/10" on:click={() => { $currentTheme = theme; showPalette = false; }}>
+							<button
+								class="group flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs transition-colors hover:bg-sub/10"
+								on:click={() => {
+									$currentTheme = theme;
+									showPalette = false;
+								}}
+							>
 								<span class="text-sub/80 group-hover:text-text">{theme.label}</span>
 							</button>
 						{/each}
@@ -668,29 +882,44 @@ function handleInput(e: KeyboardEvent) {
 			</div>
 		</div>
 	{/if}
-{#if isSearchMode}
-		<div class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-2">
-			<div class="flex items-center gap-2 rounded-full border border-main/20 bg-bg px-4 py-2 shadow-2xl">
+	{#if isSearchMode}
+		<div
+			class="animate-in fade-in slide-in-from-bottom-2 fixed bottom-20 left-1/2 z-50 -translate-x-1/2"
+		>
+			<div
+				class="flex items-center gap-2 rounded-full border border-main/20 bg-bg px-4 py-2 shadow-2xl"
+			>
 				<span class="font-bold text-main">/</span>
 				<span class="min-w-[10px] font-mono text-lg text-text">{searchTerm}</span>
 				<span class="animate-pulse text-main">_</span>
 			</div>
 		</div>
 	{/if}
-    <div class="fixed bottom-8 flex w-full justify-between items-end px-8 font-mono text-xs text-sub opacity-40 {gameState === 'playing' ? 'opacity-0' : 'opacity-100'}">
+	<div
+		class="fixed bottom-8 flex w-full justify-between items-end px-8 font-mono text-xs text-sub opacity-40 {gameState ===
+		'playing'
+			? 'opacity-0'
+			: 'opacity-100'}"
+	>
 		<div class="flex flex-col gap-2 items-start">
 			<div class="flex items-center gap-2">
-				<kbd class="rounded bg-sub/20 px-1.5 py-0.5 text-text min-w-[2rem] text-center">tab</kbd>
+				<kbd class="rounded bg-sub/20 px-1.5 py-0.5 text-center min-w-[2rem] text-text"
+					>tab</kbd
+				>
 				<span>- restart</span>
 			</div>
-			
+
 			<div class="flex items-center gap-2">
-				<kbd class="rounded bg-sub/20 px-1.5 py-0.5 text-text min-w-[2rem] text-center">enter</kbd>
+				<kbd class="rounded bg-sub/20 px-1.5 py-0.5 text-center min-w-[2rem] text-text"
+					>enter</kbd
+				>
 				<span>- reveal</span>
 			</div>
-			
+
 			<div class="flex items-center gap-2">
-				<kbd class="rounded bg-sub/20 px-1.5 py-0.5 text-text min-w-[2rem] text-center">space</kbd>
+				<kbd class="rounded bg-sub/20 px-1.5 py-0.5 text-center min-w-[2rem] text-text"
+					>space</kbd
+				>
 				<span>- flag / chord</span>
 			</div>
 
@@ -706,20 +935,55 @@ function handleInput(e: KeyboardEvent) {
 			</div>
 
 			<div class="flex items-center gap-2">
-				<kbd class="rounded bg-sub/20 px-1.5 py-0.5 text-text min-w-[2rem] text-center">/</kbd>
+				<kbd class="rounded bg-sub/20 px-1.5 py-0.5 text-center min-w-[2rem] text-text"
+					>/</kbd
+				>
 				<span>- search</span>
 			</div>
 		</div>
 
 		<div class="flex flex-col gap-2 items-end">
-			<button class="flex items-center gap-2 transition-colors hover:text-text" on:click={openPalette}>
+			<button
+				class="flex items-center gap-2 transition-colors hover:text-text"
+				on:click={openPalette}
+			>
 				<span>{$currentTheme.label}</span>
-				<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" /><circle cx="17.5" cy="10.5" r=".5" /><circle cx="8.5" cy="7.5" r=".5" /><circle cx="6.5" cy="12.5" r=".5" /><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" /></svg>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="12"
+					height="12"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					><circle cx="13.5" cy="6.5" r=".5" /><circle cx="17.5" cy="10.5" r=".5" /><circle
+						cx="8.5"
+						cy="7.5"
+						r=".5"
+					/><circle cx="6.5" cy="12.5" r=".5" /><path
+						d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"
+					/></svg
+				>
 			</button>
 
 			<div class="flex cursor-default select-none items-center gap-2">
 				<span>v1.0.0</span>
-				<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="14" rx="2" /><path d="M6 14V6a2 2 0 0 1 2-2h2" /><path d="M18 9h2a2 2 0 0 1 2 2v11l-3-3" /><path d="M14 6a2 2 0 0 0-2-2" /></svg>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="12"
+					height="12"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					><rect width="20" height="8" x="2" y="14" rx="2" /><path
+						d="M6 14V6a2 2 0 0 1 2-2h2"
+					/><path d="M18 9h2a2 2 0 0 1 2 2v11l-3-3" /><path d="M14 6a2 2 0 0 0-2-2" /></svg
+				>
 			</div>
 		</div>
 	</div>
