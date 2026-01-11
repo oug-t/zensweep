@@ -4,9 +4,9 @@ export async function GET() {
 	const site = 'https://zsweep.com';
 
 	const pages = [
-		'',        // Home
-		'/about',  // About page
-		'/login'   // Login page
+		'',        
+		'/about', 
+		'/login' 
 	];
 
 	const sitemap = `
