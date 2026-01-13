@@ -5,7 +5,9 @@
 		revealCell,
 		DIRECTIONS,
 		type Cell,
-		calculate3BV
+		calculate3BV,
+		revealCellsAround,
+		countFlagsAround
 	} from '$lib/minesweeper';
 	import { onMount } from 'svelte';
 	import confetti from 'canvas-confetti';
@@ -227,7 +229,14 @@
 			currentGrid3BV = calculate3BV(grid);
 			if (gameMode === 'standard') session3BV = currentGrid3BV;
 		}
-		const result = revealCell(grid, r, c);
+		
+		let result;
+
+		if (grid[r][c].isOpen && countFlagsAround(grid, r, c) === grid[r][c].neighborCount) {
+			result = revealCellsAround(grid, r, c);
+		} else {
+			result = revealCell(grid, r, c);
+		}
 		grid = result.grid;
 		if (result.gameOver) {
 			triggerExplosion();

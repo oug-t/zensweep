@@ -110,6 +110,44 @@ export function revealCell(
 	return { grid, gameOver: false, win: false };
 }
 
+export function countFlagsAround(grid: Cell[][], r: number, c: number) {
+	let flagsAround = 0;
+	DIRECTIONS.forEach(([dr, dc]) => {
+		const nr = r + dr,
+			nc = c + dc;
+		if (nr >= 0 && nr < grid.length && nc >= 0 && nc < grid[0].length) {
+			flagsAround += grid[nr][nc].isFlagged ? 1 : 0;
+		}
+	});
+	return flagsAround;
+}
+
+export function revealCellsAround(
+	grid: Cell[][],
+	r: number,
+	c: number
+): { grid: Cell[][]; gameOver: boolean; win: boolean } {
+	let gameOver = false;
+	let win = false;
+	DIRECTIONS.forEach(([dr, dc]) => {
+		const nr = r + dr,
+			nc = c + dc;
+		if (nr >= 0 && nr < grid.length && nc >= 0 && nc < grid[0].length) {
+			if (grid[nr][nc].isFlagged) return;
+
+			const result = revealCell(grid, nr, nc);
+			if (result.gameOver) {
+				gameOver = true;
+			}
+			if (result.win) {
+				win = true;
+			}
+		}
+	});
+
+	return { grid, gameOver, win };
+}
+
 // src/lib/minesweeper.ts
 
 export function calculate3BV(grid: Cell[][]): number {
