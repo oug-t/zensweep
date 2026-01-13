@@ -7,7 +7,7 @@
 		type Cell,
 		calculate3BV
 	} from '$lib/minesweeper';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import confetti from 'canvas-confetti';
 	import {
 		Flag,
@@ -18,12 +18,12 @@
 		Flower2,
 		User,
 		LogOut,
-		Clock,
 		Hourglass,
 		Infinity as InfinityIcon,
 		Palette,
 		Search,
-		ChevronRight
+		ChevronRight,
+		Info
 	} from 'lucide-svelte';
 	import ResultView from '$lib/components/ResultView.svelte';
 	import { supabase } from '$lib/supabase';
@@ -32,13 +32,16 @@
 	import { base } from '$app/paths';
 	import { handleVimKey } from '$lib/game/input/vim';
 
+	// --- PROPS ---
+	// Using export let instead of $props() to avoid the "runes mode" error
+	export let data;
+
 	// --- CONFIG ---
 	const GRID_SIZES = [
 		{ label: '9x9', rows: 9, cols: 9, mines: 10 },
 		{ label: '16x16', rows: 16, cols: 16, mines: 40 },
 		{ label: '30x16', rows: 16, cols: 30, mines: 99 }
 	];
-	const TIME_OPTIONS = [15, 30, 60, 120];
 
 	// --- STATE ---
 	let gameMode: 'time' | 'standard' = 'time';
@@ -47,7 +50,6 @@
 	let customTime = 60;
 	let isCustomTime = false;
 
-	// --- VIM ---
 	let cursor = { r: 0, c: 0 };
 	let vimBuffer = '';
 	let lastKey = '';
@@ -87,6 +89,7 @@
 	let isMouseDown = false;
 	let currentUser: string | null = null;
 
+	// --- REACTIVE DECLARATIONS (Svelte 4 Style) ---
 	$: StatusIcon = (() => {
 		if (gameState === 'finished') return Flower2;
 		if (isMouseDown && gameState !== 'pending') return Flame;
@@ -115,7 +118,6 @@
 	);
 
 	// --- CORE FUNCTIONS ---
-
 	function openPalette() {
 		showPalette = true;
 		paletteView = 'root';
@@ -127,18 +129,9 @@
 		gameMode = mode;
 		fullReset();
 	}
+
 	function setSize(size: (typeof GRID_SIZES)[0]) {
 		currentSize = size;
-		fullReset();
-	}
-	function setTime(t: number) {
-		timeLimit = t;
-		isCustomTime = false;
-		fullReset();
-	}
-	function setCustomTime() {
-		isCustomTime = true;
-		timeLimit = customTime;
 		fullReset();
 	}
 
@@ -156,7 +149,7 @@
 		clickHistory = [];
 		clicksThisSecond = 0;
 		timer = gameMode === 'time' ? timeLimit : 0;
-		clearInterval(timerInterval);
+		if (timerInterval) clearInterval(timerInterval);
 		resetBoard();
 	}
 
@@ -164,7 +157,6 @@
 		isFirstClick = true;
 		grid = createGrid(currentSize.rows, currentSize.cols);
 		minesLeft = currentSize.mines;
-		// Reset cursor to center
 		cursor = {
 			r: Math.floor(currentSize.rows / 2),
 			c: Math.floor(currentSize.cols / 2)
@@ -174,34 +166,26 @@
 	function startSession() {
 		if (gameState === 'playing') return;
 		gameState = 'playing';
-
 		timerInterval = setInterval(() => {
 			if (gameMode === 'time') timer--;
 			else timer++;
-
 			clickHistory.push(clicksThisSecond);
 			clickHistory = clickHistory;
 			clicksThisSecond = 0;
-
-			if (gameMode === 'time' && timer <= 0) {
-				finishSession(true);
-			}
+			if (gameMode === 'time' && timer <= 0) finishSession(true);
 		}, 1000);
 	}
 
 	function finishSession(win: boolean) {
 		gameState = 'finished';
 		isWin = win;
-		clearInterval(timerInterval);
+		if (timerInterval) clearInterval(timerInterval);
 		if (clicksThisSecond > 0) clickHistory.push(clicksThisSecond);
 
-		// Stat calculations...
 		if (gameMode === 'standard') {
 			gridsPlayed = 1;
 			sessionTotalMines = currentSize.mines;
-			totalCellsRevealed = win
-				? currentSize.rows * currentSize.cols - currentSize.mines
-				: countCurrentSafeOpen();
+			totalCellsRevealed = win ? (currentSize.rows * currentSize.cols - currentSize.mines) : countCurrentSafeOpen();
 		} else {
 			if (win) {
 				totalCellsRevealed += countCurrentSafeOpen();
@@ -209,7 +193,6 @@
 				gridsPlayed++;
 			}
 		}
-
 		if (!win) sessionErrors += countWrongFlags();
 		finalAccuracy = calculateAccuracy();
 		grid = [...grid];
@@ -217,42 +200,22 @@
 		saveResult(win);
 	}
 
-	// --- GAMEPLAY ACTIONS ---
-
-	function performClick(r: number, c: number) {
-		if (gameState === 'finished') return;
-		// Standard reveal
-		if (!grid[r][c].isOpen && !grid[r][c].isFlagged) {
-			handleClick(r, c);
-		}
-		// Chord if already open
-		else if (grid[r][c].isOpen && grid[r][c].neighborCount > 0) {
-			attemptChord(r, c);
-		}
-	}
-
 	function handleClick(r: number, c: number) {
-		if (gameState === 'finished') return;
-		if (grid[r][c].isFlagged) return;
-
+		if (gameState === 'finished' || grid[r][c].isFlagged) return;
 		totalClicks++;
 		clicksThisSecond++;
-
 		if (isFirstClick) {
 			isFirstClick = false;
 			if (gameState === 'pending') startSession();
 			placeMines(grid, currentSize.mines, { r, c });
 			currentGrid3BV = calculate3BV(grid);
 			if (gameMode === 'standard') session3BV = currentGrid3BV;
-			grid = [...grid];
 		}
-
 		const result = revealCell(grid, r, c);
 		grid = result.grid;
-
 		if (result.gameOver) {
 			triggerExplosion();
-			sessionErrors += 1;
+			sessionErrors++;
 			sessionErrors += countWrongFlags();
 			finishSession(false);
 		} else {
@@ -261,81 +224,51 @@
 	}
 
 	function toggleFlag(r: number, c: number) {
-		if (gameState === 'finished') return;
-		if (!grid[r][c].isOpen) {
-			grid[r][c].isFlagged = !grid[r][c].isFlagged;
-			minesLeft += grid[r][c].isFlagged ? -1 : 1;
-			totalClicks++;
-			clicksThisSecond++;
-			grid = grid; // trigger update
-		}
+		if (gameState === 'finished' || grid[r][c].isOpen) return;
+		grid[r][r].isFlagged = !grid[r][c].isFlagged;
+		minesLeft += grid[r][c].isFlagged ? -1 : 1;
+		totalClicks++;
+		clicksThisSecond++;
+		grid = grid;
 	}
 
 	function attemptChord(r: number, c: number) {
 		const cell = grid[r][c];
 		let flagCount = 0;
 		DIRECTIONS.forEach(([dr, dc]) => {
-			const nr = r + dr,
-				nc = c + dc;
-			if (grid[nr]?.[nc]?.isFlagged) flagCount++;
+			if (grid[r + dr]?.[c + dc]?.isFlagged) flagCount++;
 		});
-
 		if (flagCount === cell.neighborCount) {
 			totalClicks++;
 			clicksThisSecond++;
 			DIRECTIONS.forEach(([dr, dc]) => {
-				const nr = r + dr,
-					nc = c + dc;
-				const neighbor = grid[nr]?.[nc];
-				if (neighbor && !neighbor.isOpen && !neighbor.isFlagged) {
-					handleClick(nr, nc);
-				}
+				const nr = r + dr, nc = c + dc;
+				if (grid[nr]?.[nc] && !grid[nr][nc].isOpen && !grid[nr][nc].isFlagged) handleClick(nr, nc);
 			});
 		}
 	}
 
 	function handleInput(e: KeyboardEvent) {
-		// 1. Palette logic (Highest Priority)
 		if (showPalette) {
 			if (e.key === 'Escape') {
-				if (paletteView === 'themes') {
-					paletteView = 'root';
-					searchQuery = '';
-				} else {
-					showPalette = false;
-				}
+				if (paletteView === 'themes') { paletteView = 'root'; searchQuery = ''; }
+				else showPalette = false;
 			}
 			return;
 		}
-
-		// 2. SEARCH MODE INTERCEPTION (Trap inputs when typing query)
 		if (isSearchMode) {
 			e.preventDefault();
-
-			if (e.key === 'Escape') {
-				isSearchMode = false;
-				searchTerm = '';
-			} else if (e.key === 'Enter') {
-				executeSearch();
-				isSearchMode = false;
-			} else if (e.key === 'Backspace') {
-				searchTerm = searchTerm.slice(0, -1);
-			} else if (/^[0-8]$/.test(e.key)) {
-				searchTerm = e.key; // Single digit search is usually enough, overwrites previous
-			}
+			if (e.key === 'Escape') { isSearchMode = false; searchTerm = ''; }
+			else if (e.key === 'Enter') { executeSearch(); isSearchMode = false; }
+			else if (e.key === 'Backspace') searchTerm = searchTerm.slice(0, -1);
+			else if (/^[0-8]$/.test(e.key)) searchTerm = e.key;
 			return;
 		}
-
-		// 3. Normal Game Input Checks
 		const activeEl = document.activeElement;
 		if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) return;
 		if (e.metaKey || e.ctrlKey || e.altKey) return;
 
-		if (e.key === 'Tab') {
-			e.preventDefault();
-			fullReset();
-			return;
-		}
+		if (e.key === 'Tab') { e.preventDefault(); fullReset(); return; }
 		if (e.key === 'Escape') {
 			e.preventDefault();
 			if (vimBuffer.length > 0) vimBuffer = '';
@@ -344,111 +277,42 @@
 			return;
 		}
 
-		// --- gg LOGIC ---
 		const now = Date.now();
 		if (e.key === 'g' && lastKey === 'g' && now - lastKeyTime < 500) {
 			cursor = { r: 0, c: cursor.c };
-			lastKey = '';
-			vimBuffer = '';
-			return;
+			lastKey = ''; vimBuffer = ''; return;
 		}
-		if (e.key === 'g') {
-			lastKey = 'g';
-			lastKeyTime = now;
-			return;
-		}
+		if (e.key === 'g') { lastKey = 'g'; lastKeyTime = now; return; }
 
-		// --- MAIN HANDLER ---
 		const action = handleVimKey(e.key);
-
 		if (action) {
 			e.preventDefault();
-
-			if (action.type === 'START_SEARCH') {
-				isSearchMode = true;
-				searchTerm = '';
-				return;
-			}
-
-			if (action.type === 'NEXT_MATCH') {
-				if (searchMatches.length === 0) return;
+			if (action.type === 'START_SEARCH') { isSearchMode = true; searchTerm = ''; return; }
+			if (action.type === 'NEXT_MATCH' && searchMatches.length > 0) {
 				matchIndex = (matchIndex + 1) % searchMatches.length;
-				cursor = searchMatches[matchIndex];
-				return;
+				cursor = searchMatches[matchIndex]; return;
 			}
-
-			if (action.type === 'PREV_MATCH') {
-				if (searchMatches.length === 0) return;
-				// Wrap around backwards
+			if (action.type === 'PREV_MATCH' && searchMatches.length > 0) {
 				matchIndex = (matchIndex - 1 + searchMatches.length) % searchMatches.length;
-				cursor = searchMatches[matchIndex];
-				return;
+				cursor = searchMatches[matchIndex]; return;
 			}
-
-			// ... [EXISTING VIM LOGIC BELOW UNCHANGED] ...
-			if (action.type === 'DIGIT') {
-				vimBuffer += action.value;
-				return;
-			}
+			if (action.type === 'DIGIT') { vimBuffer += action.value; return; }
 			if (action.type === 'ZERO') {
 				if (vimBuffer.length > 0) vimBuffer += '0';
-				else cursor = { r: cursor.r, c: 0 };
-				return;
+				else cursor = { r: cursor.r, c: 0 }; return;
 			}
+			if (action.type === 'START_ROW') { cursor = { r: cursor.r, c: 0 }; vimBuffer = ''; return; }
+			if (action.type === 'GO_BOTTOM') { cursor = { r: currentSize.rows - 1, c: cursor.c }; vimBuffer = ''; return; }
 
-			// Simple Actions
-			if (action.type === 'START_ROW') {
-				cursor = { r: cursor.r, c: 0 };
-				vimBuffer = '';
-				return;
-			}
-			if (action.type === 'GO_BOTTOM') {
-				cursor = { r: currentSize.rows - 1, c: cursor.c };
-				vimBuffer = '';
-				return;
-			}
-
-			// Buffered Actions
-			const multiplier = vimBuffer.length > 0 ? parseInt(vimBuffer) : 1;
-
+			const mult = vimBuffer.length > 0 ? parseInt(vimBuffer) : 1;
 			if (action.type === 'MOVE_CURSOR') {
-				const newR = Math.max(
-					0,
-					Math.min(currentSize.rows - 1, cursor.r + action.dy * multiplier)
-				);
-				const newC = Math.max(
-					0,
-					Math.min(currentSize.cols - 1, cursor.c + action.dx * multiplier)
-				);
-				cursor = { r: newR, c: newC };
+				cursor.r = Math.max(0, Math.min(currentSize.rows - 1, cursor.r + action.dy * mult));
+				cursor.c = Math.max(0, Math.min(currentSize.cols - 1, cursor.c + action.dx * mult));
 				vimBuffer = '';
-			} else if (action.type === 'NEXT_UNREVEALED') {
-				let steps = multiplier;
-				let currentC = cursor.c;
-				while (steps > 0 && currentC < currentSize.cols - 1) {
-					currentC++;
-					if (!grid[cursor.r][currentC].isOpen) steps--;
-				}
-				cursor = { r: cursor.r, c: currentC };
-				vimBuffer = '';
-			} else if (action.type === 'PREV_UNREVEALED') {
-				let steps = multiplier;
-				let currentC = cursor.c;
-				while (steps > 0 && currentC > 0) {
-					currentC--;
-					if (!grid[cursor.r][currentC].isOpen) steps--;
-				}
-				cursor = { r: cursor.r, c: currentC };
-				vimBuffer = '';
-			} else if (action.type === 'FLAG') {
-				toggleFlag(cursor.r, cursor.c);
-				vimBuffer = '';
-			} else if (action.type === 'REVEAL') {
-				handleClick(cursor.r, cursor.c);
-				vimBuffer = '';
-			} else if (action.type === 'SMART') {
-				const cell = grid[cursor.r][cursor.c];
-				if (!cell.isOpen) toggleFlag(cursor.r, cursor.c);
+			} else if (action.type === 'FLAG') { toggleFlag(cursor.r, cursor.c); vimBuffer = ''; }
+			else if (action.type === 'REVEAL') { handleClick(cursor.r, cursor.c); vimBuffer = ''; }
+			else if (action.type === 'SMART') {
+				if (!grid[cursor.r][cursor.c].isOpen) toggleFlag(cursor.r, cursor.c);
 				else attemptChord(cursor.r, cursor.c);
 				vimBuffer = '';
 			}
@@ -457,33 +321,18 @@
 
 	function executeSearch() {
 		if (!searchTerm) return;
-		const targetVal = parseInt(searchTerm);
-
+		const target = parseInt(searchTerm);
 		searchMatches = [];
-
 		for (let r = 0; r < currentSize.rows; r++) {
 			for (let c = 0; c < currentSize.cols; c++) {
 				const cell = grid[r][c];
-
-				// UPDATE: Special handling for 0
-				if (targetVal === 0) {
-					// 0 = Search for Unrevealed Cells (Closed)
-					if (!cell.isOpen) {
-						searchMatches.push({ r, c });
-					}
-				} else {
-					// 1-8 = Search for Open Cells with that number
-					if (cell.isOpen && cell.neighborCount === targetVal) {
-						searchMatches.push({ r, c });
-					}
+				if (target === 0 ? !cell.isOpen : (cell.isOpen && cell.neighborCount === target)) {
+					searchMatches.push({ r, c });
 				}
 			}
 		}
-
 		if (searchMatches.length > 0) {
-			matchIndex = searchMatches.findIndex(
-				(m) => m.r > cursor.r || (m.r === cursor.r && m.c >= cursor.c)
-			);
+			matchIndex = searchMatches.findIndex(m => m.r > cursor.r || (m.r === cursor.r && m.c >= cursor.c));
 			if (matchIndex === -1) matchIndex = 0;
 			cursor = searchMatches[matchIndex];
 		}
@@ -491,72 +340,46 @@
 
 	function countCurrentSafeOpen() {
 		let count = 0;
-		for (let row of grid)
-			for (let cell of row) if (cell.isOpen && !cell.isMine) count++;
+		grid.forEach(row => row.forEach(c => { if (c.isOpen && !c.isMine) count++; }));
 		return count;
 	}
+
 	function countWrongFlags() {
 		let wrong = 0;
-		for (let row of grid)
-			for (let cell of row) if (cell.isFlagged && !cell.isMine) wrong++;
+		grid.forEach(row => row.forEach(c => { if (c.isFlagged && !c.isMine) wrong++; }));
 		return wrong;
 	}
+
 	function calculateAccuracy() {
 		if (sessionTotalMines === 0) return 0;
-		return Math.max(
-			0,
-			Math.round(((sessionTotalMines - sessionErrors) / sessionTotalMines) * 100)
-		);
+		return Math.max(0, Math.round(((sessionTotalMines - sessionErrors) / sessionTotalMines) * 100));
 	}
-	function checkWin() {
-		let safeCellsOpen = 0;
-		const totalSafeCells = currentSize.rows * currentSize.cols - currentSize.mines;
-		for (let row of grid)
-			for (let cell of row) if (cell.isOpen && !cell.isMine) safeCellsOpen++;
 
-		if (safeCellsOpen === totalSafeCells) {
+	function checkWin() {
+		let safeOpen = countCurrentSafeOpen();
+		const totalSafe = currentSize.rows * currentSize.cols - currentSize.mines;
+		if (safeOpen === totalSafe) {
 			if (gameMode === 'time') {
-				gridsSolved++;
-				gridsPlayed++;
-				session3BV += currentGrid3BV;
-				totalCellsRevealed += totalSafeCells;
-				sessionTotalMines += currentSize.mines;
-				sessionErrors += countWrongFlags();
-				resetBoard();
+				gridsSolved++; gridsPlayed++; session3BV += currentGrid3BV;
+				totalCellsRevealed += totalSafe; sessionTotalMines += currentSize.mines;
+				sessionErrors += countWrongFlags(); resetBoard();
 			} else {
-				gridsSolved = 1;
-				finishSession(true);
+				gridsSolved = 1; finishSession(true);
 			}
 		}
 	}
 
-	// --- SUPABASE & EFFECTS ---
 	function triggerExplosion() {
-		confetti({
-			particleCount: 150,
-			spread: 100,
-			origin: { y: 0.6 },
-			colors: ['#ef4444', '#dc2626', '#b91c1c'],
-			disableForReducedMotion: true
-		});
+		confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 }, colors: ['#ef4444', '#dc2626', '#b91c1c'] });
 	}
+
 	function triggerWin() {
-		confetti({
-			particleCount: 200,
-			spread: 120,
-			origin: { y: 0.6 },
-			colors: ['#10b981', '#34d399', '#f59e0b'],
-			disableForReducedMotion: true
-		});
+		confetti({ particleCount: 200, spread: 120, origin: { y: 0.6 }, colors: ['#10b981', '#34d399', '#f59e0b'] });
 	}
 
 	onMount(async () => {
-		const {
-			data: { session }
-		} = await supabase.auth.getSession();
-		if (session?.user)
-			currentUser =
-				session.user.user_metadata.full_name || session.user.email?.split('@')[0];
+		const { data: { session } } = await supabase.auth.getSession();
+		if (session?.user) currentUser = session.user.user_metadata.full_name || session.user.email?.split('@')[0];
 		fullReset();
 	});
 
@@ -566,169 +389,74 @@
 		fullReset();
 	}
 
-	async function saveResult(win: boolean) {
-		const {
-			data: { user }
-		} = await supabase.auth.getUser();
-		let timeTaken = gameMode === 'standard' ? timer : Math.max(0, timeLimit - timer);
-		let gridsValue = gameMode === 'standard' ? (win ? 1 : 0) : gridsSolved;
-		let minesSwept = win
-			? gameMode === 'standard'
-				? currentSize.mines
-				: gridsSolved * currentSize.mines
-			: 0;
+// inside +page.svelte
 
-		const { error } = await supabase.from('game_results').insert({
-			user_id: user ? user.id : null,
-			mode: gameMode,
-			setting: gameMode === 'time' ? timeLimit.toString() : currentSize.label,
-			win,
-			time: timeTaken,
-			grids: gridsValue,
-			total_mines: minesSwept,
-			accuracy: finalAccuracy
-		});
-		if (error) console.error('Error saving result:', error);
-	}
+async function saveResult(win: boolean) {
+    // Get the current user session
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    let timeTaken = gameMode === 'standard' ? timer : Math.max(0, timeLimit - timer);
+    
+    // Explicitly handle the user_id for the insert
+    const { error } = await supabase.from('game_results').insert({
+        user_id: session?.user?.id || null, // Saves as NULL if not logged in
+        mode: gameMode,
+        setting: gameMode === 'time' ? timeLimit.toString() : currentSize.label,
+        win,
+        time: timeTaken,
+        grids: gameMode === 'standard' ? (win ? 1 : 0) : gridsSolved,
+        total_mines: win ? (gameMode === 'standard' ? currentSize.mines : gridsSolved * currentSize.mines) : 0,
+        accuracy: finalAccuracy
+    });
+    
+    if (error) console.error('Error saving result:', error);
+}
 </script>
 
 <svelte:head>
 	<title>Zsweep</title>
-	<meta
-		name="description"
-		content="Play Minesweeper without a mouse. Zsweep is a modern, keyboard-driven implementation of the classic game, optimized for speed and efficiency with Vim motions."
-	/>
-
-	<meta property="og:type" content="website" />
-	<meta property="og:url" content="https://zsweep.com/" />
-	<meta property="og:title" content="Zsweep | The Vim-Optimized Minesweeper" />
-	<meta
-		property="og:description"
-		content="Master the grid using only your keyboard. H, J, K, L your way to victory."
-	/>
-	<meta property="og:image" content="https://zsweep.com/og-image.png" />
-
-	<meta property="twitter:card" content="summary_large_image" />
-	<meta property="twitter:url" content="https://zsweep.com/" />
-	<meta property="twitter:title" content="Zsweep | The Vim-Optimized Minesweeper" />
-	<meta
-		property="twitter:description"
-		content="Master the grid using only your keyboard. H, J, K, L your way to victory."
-	/>
-	<meta property="twitter:image" content="https://zsweep.com/og-image.png" />
-
-	<script type="application/ld+json">
-		{
-			"@context": "https://schema.org",
-			"@type": "VideoGame",
-			"name": "Zsweep",
-			"url": "https://zsweep.com",
-			"description": "A keyboard-driven Minesweeper clone optimized for Vim users.",
-			"genre": "Puzzle",
-			"operatingSystem": "Web Browser",
-			"applicationCategory": "Game"
-		}
-	</script>
 </svelte:head>
 
 <svelte:window on:keydown={handleInput} on:mouseup={() => (isMouseDown = false)} />
 
-<div
-	class="relative flex min-h-screen flex-col items-center bg-bg font-mono text-text transition-colors duration-300"
->
-	<div
-		class="animate-in fade-in slide-in-from-top-4 mb-0 flex w-full max-w-5xl items-center justify-between p-8 duration-500"
-	>
+<div class="relative flex min-h-screen flex-col items-center bg-bg font-mono text-text transition-colors duration-300">
+	<div class="animate-in fade-in slide-in-from-top-4 mb-0 flex w-full max-w-5xl items-center justify-between p-8 duration-500">
 		<div class="flex items-center gap-4 transition-all duration-300">
-			<a
-				href="{base}/"
-				class="group flex select-none items-center gap-3 transition-all {gameState ===
-				'playing'
-					? 'pointer-events-none opacity-50 grayscale'
-					: 'hover:opacity-80'}"
-			>
-				<Bomb
-					size={28}
-					strokeWidth={2.5}
-					class="transition-transform duration-300 group-hover:scale-110 {gameState ===
-					'playing'
-						? 'text-sub'
-						: 'text-main'}"
-				/>
+			<a href="{base}/" class="group flex select-none items-center gap-3 transition-all {gameState === 'playing' ? 'pointer-events-none opacity-50 grayscale' : 'hover:opacity-80'}">
+				<Bomb size={28} strokeWidth={2.5} class="transition-transform duration-300 group-hover:scale-110 {gameState === 'playing' ? 'text-sub' : 'text-main'}" />
 				<h1 class="font-mono text-3xl font-black leading-none tracking-tighter text-text">
-					z<span class={gameState === 'playing' ? 'text-text' : 'text-main'}
-						>sweep</span
-					>
+					z<span class={gameState === 'playing' ? 'text-text' : 'text-main'}>sweep</span>
 				</h1>
 			</a>
 
-			<a
-				href="{base}/about"
-				class="text-sub transition-all duration-300 hover:text-text {gameState ===
-				'playing'
-					? 'pointer-events-none opacity-0'
-					: 'opacity-100'}"
-				title="About"
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					width="20"
-					height="20"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path
-						d="M12 8h.01"
-					/></svg
-				>
+			<a href="{base}/about" class="text-sub transition-all duration-300 hover:text-text {gameState === 'playing' ? 'pointer-events-none opacity-0' : 'opacity-100'}" title="About">
+				<Info size={20} />
 			</a>
 		</div>
 
-		<div
-			class="flex items-center gap-6 text-sm transition-opacity duration-300 {gameState ===
-			'playing'
-				? 'pointer-events-none opacity-0'
-				: 'opacity-100'}"
-		>
+		<div class="flex items-center gap-6 text-sm transition-opacity duration-300 {gameState === 'playing' ? 'pointer-events-none opacity-0' : 'opacity-100'}">
 			{#if currentUser}
 				<div class="group relative z-20">
-					<button
-						class="flex items-center gap-2 rounded px-3 py-1.5 text-main transition-all hover:bg-sub/10"
-					>
+					<button class="flex items-center gap-2 rounded px-3 py-1.5 text-main transition-all hover:bg-sub/10">
 						<User size={16} />
 						<span class="font-bold">{currentUser}</span>
 					</button>
-					<div
-						class="invisible absolute right-0 top-full pt-2 opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100"
-					>
-						<div
-							class="flex min-w-[160px] flex-col rounded border border-sub/20 bg-bg p-1 font-mono text-sm shadow-xl"
-						>
-							<a
-								href="{base}/profile"
-								class="flex items-center gap-2 rounded px-3 py-2 text-sub transition-colors hover:bg-sub/10 hover:text-text"
-							>
+					<div class="invisible absolute right-0 top-full pt-2 opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100">
+						<div class="flex min-w-[160px] flex-col rounded border border-sub/20 bg-bg p-1 font-mono text-sm shadow-xl">
+							<a href="{base}/profile" class="flex items-center gap-2 rounded px-3 py-2 text-sub transition-colors hover:bg-sub/10 hover:text-text">
 								<User size={14} /><span>Profile</span>
 							</a>
 							<div class="my-1 h-[1px] bg-sub/10"></div>
-							<button
-								on:click={handleLogout}
-								class="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sub transition-colors hover:bg-error/10 hover:text-error"
-							>
+							<button on:click={handleLogout} class="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sub transition-colors hover:bg-error/10 hover:text-error">
 								<LogOut size={14} /><span>Sign Out</span>
 							</button>
 						</div>
 					</div>
 				</div>
 			{:else}
-				<a
-					href="/login"
-					class="flex h-8 w-8 items-center justify-center rounded text-sub hover:bg-sub/10 hover:text-text"
-					><User size={18} /></a
-				>
+				<a href="/login" class="flex h-8 w-8 items-center justify-center rounded text-sub hover:bg-sub/10 hover:text-text">
+					<User size={18} />
+				</a>
 			{/if}
 		</div>
 	</div>
@@ -746,30 +474,16 @@
 			{gridsPlayed}
 			mode={gameMode}
 			total3BV={session3BV}
+			totalGlobalSeconds={data?.stats?.seconds || 0}
 			on:restart={fullReset}
 		/>
 	{:else}
-		<div
-			class="mb-8 flex select-none items-center gap-6 rounded-lg bg-sub/10 px-4 py-2 text-xs transition-all duration-300 {gameState ===
-			'playing'
-				? 'pointer-events-none opacity-0'
-				: 'opacity-100'}"
-		>
+		<div class="mb-8 flex select-none items-center gap-6 rounded-lg bg-sub/10 px-4 py-2 text-xs transition-all duration-300 {gameState === 'playing' ? 'pointer-events-none opacity-0' : 'opacity-100'}">
 			<div class="flex items-center gap-3">
-				<button
-					class="flex items-center gap-2 transition-colors {gameMode === 'time'
-						? 'font-bold text-main'
-						: 'text-sub'}"
-					on:click={() => setMode('time')}
-				>
+				<button class="flex items-center gap-2 transition-colors {gameMode === 'time' ? 'font-bold text-main' : 'text-sub'}" on:click={() => setMode('time')}>
 					<Hourglass size={12} /><span>time</span>
 				</button>
-				<button
-					class="flex items-center gap-2 transition-colors {gameMode === 'standard'
-						? 'font-bold text-main'
-						: 'text-sub'}"
-					on:click={() => setMode('standard')}
-				>
+				<button class="flex items-center gap-2 transition-colors {gameMode === 'standard' ? 'font-bold text-main' : 'text-sub'}" on:click={() => setMode('standard')}>
 					<InfinityIcon size={12} /><span>standard</span>
 				</button>
 			</div>
@@ -777,17 +491,9 @@
 			<div class="flex items-center gap-3">
 				<Grid3x3 size={12} class="text-sub opacity-50" />
 				{#each GRID_SIZES as size}
-					<button
-						class="{currentSize.label === size.label
-							? 'font-bold text-main'
-							: 'text-sub hover:text-text'}"
-						on:click={() => setSize(size)}>{size.label}</button
-					>
+					<button class="{currentSize.label === size.label ? 'font-bold text-main' : 'text-sub hover:text-text'}" on:click={() => setSize(size)}>{size.label}</button>
 				{/each}
-				<button
-					class="text-sub hover:text-text"
-					on:click={openPalette}><Wrench size={12} /></button
-				>
+				<button class="text-sub hover:text-text" on:click={openPalette}><Wrench size={12} /></button>
 			</div>
 		</div>
 
@@ -798,52 +504,20 @@
 					<span class="text-3xl font-bold leading-none text-main">{timer}</span>
 				</div>
 				<div class="flex w-12 flex-col text-right">
-					<span class="text-[10px] font-bold uppercase text-sub opacity-50"
-						>mines</span
-					>
+					<span class="text-[10px] font-bold uppercase text-sub opacity-50">mines</span>
 					<span class="text-3xl font-bold leading-none">{minesLeft}</span>
 				</div>
 			</div>
 
-			<div
-				class="grid select-none gap-1 bg-bg transition-all duration-300"
-				style="grid-template-columns: repeat({currentSize.cols}, minmax(0, 1fr));"
-				on:mousedown={() => {
-					if (gameState === 'playing') isMouseDown = true;
-				}}
-			>
+			<div class="grid select-none gap-1 bg-bg transition-all duration-300" style="grid-template-columns: repeat({currentSize.cols}, minmax(0, 1fr));" on:mousedown={() => { if (gameState === 'playing') isMouseDown = true; }}>
 				{#each grid as row, r (r)}
 					{#each row as cell, c (c)}
-						<button
-							class="flex h-8 w-8 items-center justify-center rounded-sm text-sm font-bold transition-all duration-75 focus:outline-none
-							{cell.isOpen ? 'bg-sub/10' : 'bg-sub/30 hover:bg-sub/50'}
-							{cell.isMine && cell.isOpen ? 'bg-error text-bg' : ''}
-							{cell.isMine && !cell.isOpen && gameState === 'finished'
-								? 'bg-error/50 opacity-50'
-								: ''}
-							
-							{cursor.r === r && cursor.c === c
-								? 'z-10 ring-2 ring-main/50 brightness-110'
-								: ''}"
-							on:click={() => handleClick(r, c)}
-							on:contextmenu|preventDefault={() => toggleFlag(r, c)}
-							on:mouseenter={() => {
-								cursor = { r, c };
-							}}
-						>
+						<button class="flex h-8 w-8 items-center justify-center rounded-sm text-sm font-bold transition-all duration-75 focus:outline-none {cell.isOpen ? 'bg-sub/10' : 'bg-sub/30 hover:bg-sub/50'} {cell.isMine && cell.isOpen ? 'bg-error text-bg' : ''} {cell.isMine && !cell.isOpen && gameState === 'finished' ? 'bg-error/50 opacity-50' : ''} {cursor.r === r && cursor.c === c ? 'z-10 ring-2 ring-main/50 brightness-110' : ''}" on:click={() => handleClick(r, c)} on:contextmenu|preventDefault={() => toggleFlag(r, c)} on:mouseenter={() => { cursor = { r, c }; }}>
 							{#if cell.isOpen}
 								{#if cell.isMine}
 									<Bomb size={16} />
 								{:else if cell.neighborCount > 0}
-									<span
-										class={cell.neighborCount === 1
-											? 'text-blue-400'
-											: cell.neighborCount === 2
-												? 'text-green-400'
-												: cell.neighborCount === 3
-													? 'text-red-400'
-													: 'text-purple-400'}>{cell.neighborCount}</span
-									>
+									<span class={cell.neighborCount === 1 ? 'text-blue-400' : cell.neighborCount === 2 ? 'text-green-400' : cell.neighborCount === 3 ? 'text-red-400' : 'text-purple-400'}>{cell.neighborCount}</span>
 								{/if}
 							{:else if cell.isFlagged}
 								<span class="text-error"><Flag size={14} fill="currentColor" /></span>
@@ -856,63 +530,26 @@
 	{/if}
 
 	{#if showPalette}
-		<div
-			class="animate-in fade-in fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm duration-150"
-			on:mousedown|self={() => (showPalette = false)}
-		>
-			<div
-				class="mt-[15vh] flex max-h-[50vh] w-[450px] flex-col overflow-hidden rounded-lg border border-sub/20 bg-bg font-mono text-text shadow-2xl"
-			>
+		<div class="animate-in fade-in fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm duration-150" on:mousedown|self={() => (showPalette = false)}>
+			<div class="mt-[15vh] flex max-h-[50vh] w-[450px] flex-col overflow-hidden rounded-lg border border-sub/20 bg-bg font-mono text-text shadow-2xl">
 				<div class="flex items-center gap-3 border-b border-sub/10 p-3">
 					<Search size={14} class="text-main" />
-					<input
-						bind:this={searchInputEl}
-						bind:value={searchQuery}
-						type="text"
-						placeholder={paletteView === 'root'
-							? 'Type to search...'
-							: 'Search themes...'}
-						class="h-full w-full border-none bg-transparent text-xs text-text outline-none placeholder:text-sub/50"
-						on:keydown={(e) => {
-							if (
-								e.key === 'Backspace' &&
-								searchQuery === '' &&
-								paletteView === 'themes'
-							)
-								paletteView = 'root';
-						}}
-					/>
+					<input bind:this={searchInputEl} bind:value={searchQuery} type="text" placeholder={paletteView === 'root' ? 'Type to search...' : 'Search themes...'} class="h-full w-full border-none bg-transparent text-xs text-text outline-none placeholder:text-sub/50" />
 				</div>
 				<div class="overflow-y-auto p-1.5">
 					{#if paletteView === 'root'}
 						{#each filteredCommands as cmd}
-							<button
-								class="group flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs transition-colors hover:bg-sub/10"
-								on:click={cmd.action}
-							>
+							<button class="group flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs transition-colors hover:bg-sub/10" on:click={cmd.action}>
 								<div class="flex items-center gap-3">
-									<svelte:component
-										this={cmd.icon}
-										size={12}
-										class="text-sub group-hover:text-main"
-									/>
+									<svelte:component this={cmd.icon} size={12} class="text-sub group-hover:text-main" />
 									<span class="text-sub/80 group-hover:text-text">{cmd.label}</span>
 								</div>
-								<ChevronRight
-									size={12}
-									class="text-sub/40 group-hover:text-main"
-								/>
+								<ChevronRight size={12} class="text-sub/40 group-hover:text-main" />
 							</button>
 						{/each}
 					{:else if paletteView === 'themes'}
 						{#each filteredThemes as theme}
-							<button
-								class="group flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs transition-colors hover:bg-sub/10"
-								on:click={() => {
-									$currentTheme = theme;
-									showPalette = false;
-								}}
-							>
+							<button class="group flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs transition-colors hover:bg-sub/10" on:click={() => { $currentTheme = theme; showPalette = false; }}>
 								<span class="text-sub/80 group-hover:text-text">{theme.label}</span>
 							</button>
 						{/each}
@@ -921,109 +558,14 @@
 			</div>
 		</div>
 	{/if}
+
 	{#if isSearchMode}
-		<div
-			class="animate-in fade-in slide-in-from-bottom-2 fixed bottom-20 left-1/2 z-50 -translate-x-1/2"
-		>
-			<div
-				class="flex items-center gap-2 rounded-full border border-main/20 bg-bg px-4 py-2 shadow-2xl"
-			>
+		<div class="animate-in fade-in slide-in-from-bottom-2 fixed bottom-20 left-1/2 z-50 -translate-x-1/2">
+			<div class="flex items-center gap-2 rounded-full border border-main/20 bg-bg px-4 py-2 shadow-2xl">
 				<span class="font-bold text-main">/</span>
 				<span class="min-w-[10px] font-mono text-lg text-text">{searchTerm}</span>
 				<span class="animate-pulse text-main">_</span>
 			</div>
 		</div>
 	{/if}
-	<div
-		class="fixed bottom-8 flex w-full justify-between items-end px-8 font-mono text-xs text-sub opacity-40 {gameState ===
-		'playing'
-			? 'opacity-0'
-			: 'opacity-100'}"
-	>
-		<div class="flex flex-col gap-2 items-start">
-			<div class="flex items-center gap-2">
-				<kbd class="rounded bg-sub/20 px-1.5 py-0.5 text-center min-w-[2rem] text-text"
-					>tab</kbd
-				>
-				<span>- restart</span>
-			</div>
-
-			<div class="flex items-center gap-2">
-				<kbd class="rounded bg-sub/20 px-1.5 py-0.5 text-center min-w-[2rem] text-text"
-					>enter</kbd
-				>
-				<span>- reveal</span>
-			</div>
-
-			<div class="flex items-center gap-2">
-				<kbd class="rounded bg-sub/20 px-1.5 py-0.5 text-center min-w-[2rem] text-text"
-					>space</kbd
-				>
-				<span>- flag / chord</span>
-			</div>
-
-			<div class="flex items-center gap-2">
-				<kbd class="rounded bg-sub/20 px-1.5 py-0.5 text-text transition-all duration-100">
-					{#if vimBuffer.length > 0}
-						<span class="text-main font-bold">{vimBuffer}</span>
-					{:else}
-						vim
-					{/if}
-				</kbd>
-				<span>- motion</span>
-			</div>
-
-			<div class="flex items-center gap-2">
-				<kbd class="rounded bg-sub/20 px-1.5 py-0.5 text-center min-w-[2rem] text-text"
-					>/</kbd
-				>
-				<span>- search</span>
-			</div>
-		</div>
-
-		<div class="flex flex-col gap-2 items-end">
-			<button
-				class="flex items-center gap-2 transition-colors hover:text-text"
-				on:click={openPalette}
-			>
-				<span>{$currentTheme.label}</span>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					width="12"
-					height="12"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					><circle cx="13.5" cy="6.5" r=".5" /><circle cx="17.5" cy="10.5" r=".5" /><circle
-						cx="8.5"
-						cy="7.5"
-						r=".5"
-					/><circle cx="6.5" cy="12.5" r=".5" /><path
-						d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"
-					/></svg
-				>
-			</button>
-
-			<div class="flex cursor-default select-none items-center gap-2">
-				<span>v1.0.0</span>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					width="12"
-					height="12"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					><rect width="20" height="8" x="2" y="14" rx="2" /><path
-						d="M6 14V6a2 2 0 0 1 2-2h2"
-					/><path d="M18 9h2a2 2 0 0 1 2 2v11l-3-3" /><path d="M14 6a2 2 0 0 0-2-2" /></svg
-				>
-			</div>
-		</div>
-	</div>
 </div>

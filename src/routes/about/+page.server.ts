@@ -1,29 +1,26 @@
 // src/routes/about/+page.server.ts
-import type { PageServerLoad } from './$types';
+export const load = async ({ locals: { supabase } }) => {
+    const { count: started } = await supabase
+        .from('game_results')
+        .select('*', { count: 'exact', head: true });
 
-export const load: PageServerLoad = async ({ locals: { supabase } }) => {
-	const { data, error } = await supabase
-		.from('game_results')
-		.select('win, time'); 
+    const { count: completed } = await supabase
+        .from('game_results')
+        .select('*', { count: 'exact', head: true })
+        .eq('win', true);
 
-	if (error || !data) {
-		console.error('Error fetching stats:', error);
-		return {
-			stats: { started: 0, completed: 0, seconds: 0 }
-		};
-	}
-	
-	const started = data.length;
+    const { data: totalSeconds, error: rpcError } = await supabase
+        .rpc('get_total_sweeping_time');
 
-	const completed = data.filter((game) => game.win === true).length;
+    if (rpcError) {
+        console.error('RPC Error:', rpcError);
+    }
 
-	const seconds = data.reduce((total, game) => total + (game.time || 0), 0);
-
-	return {
-		stats: {
-			started,
-			completed,
-			seconds
-		}
-	};
+    return {
+        stats: {
+            started: started || 0,
+            completed: completed || 0,
+            seconds: totalSeconds || 0 
+        }
+    };
 };

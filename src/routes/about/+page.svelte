@@ -5,8 +5,8 @@
 	import { onMount } from 'svelte';
 	import { supabase } from '$lib/supabase';
 
-	// Uses Svelte 5 Runes (if you are on Svelte 4, change this to: export let data;)
-	let { data } = $props(); 
+	// --- PROPS (Svelte 4 Style) ---
+	export let data; 
 
 	let currentUser: string | null = null;
 
@@ -17,20 +17,20 @@
 		return n.toLocaleString();
 	};
 
-const formatTime = (seconds: number) => {
-		if (seconds < 60) return { val: seconds, unit: 'seconds' };
-		
-		const mins = seconds / 60;
-		const hours = seconds / 3600;
-		const days = seconds / 86400;
-		const years = seconds / 31536000;
+    const formatTime = (seconds: number) => {
+        const hours = seconds / 3600;
+        // This ensures 8.84 becomes "8.8"
+        if (hours >= 1) {
+            return { val: hours.toFixed(1), unit: 'hours' };
+        }
+        const mins = Math.floor(seconds / 60);
+        if (mins >= 1) return { val: mins, unit: 'minutes' };
+        return { val: seconds, unit: 'seconds' };
+    };
 
-		if (years >= 1) return { val: years.toFixed(1), unit: 'years' };
-		if (days >= 1) return { val: days.toFixed(1), unit: 'days' };
-		if (hours >= 1) return { val: Math.floor(hours), unit: 'hours' };
-		return { val: Math.floor(mins), unit: 'minutes' };
-	};
-    let timeObj = formatTime(data.stats.seconds);
+    // --- REACTIVE DECLARATION (Svelte 4 Style) ---
+    // This replaces $derived() to fix your "runes mode" error
+    $: timeObj = formatTime(data.stats.seconds);
 
 	// --- AUTH LOGIC ---
 	onMount(async () => {
@@ -62,7 +62,7 @@ const formatTime = (seconds: number) => {
 <svelte:window on:keydown={handleKeydown} />
 
 <div class="relative flex min-h-screen flex-col items-center bg-bg p-8 font-mono text-text transition-colors duration-300">
-	<div class="animate-in fade-in slide-in-from-top-4 mb-16 flex w-full max-w-5xl items-center justify-between duration-500">
+    <div class="animate-in fade-in slide-in-from-top-4 mb-16 flex w-full max-w-5xl items-center justify-between duration-500">
 		<a href="/" class="flex select-none items-center gap-2 transition-opacity hover:opacity-80">
 			<Bomb size={24} class="text-main" />
 			<h1 class="text-2xl font-bold tracking-tight text-text">
@@ -100,27 +100,27 @@ const formatTime = (seconds: number) => {
 	</div>
 
 	<div class="animate-in fade-in w-full max-w-4xl duration-700">
-		
-<div class="mb-24 grid grid-cols-1 gap-12 text-center md:grid-cols-3">
+		<div class="mb-24 grid grid-cols-1 gap-12 text-center md:grid-cols-3">
 			<div class="flex flex-col gap-1">
 				<span class="text-xs font-bold uppercase tracking-widest text-sub">total boards started</span>
 				<span class="text-5xl font-bold text-text">{fmtCount(data.stats.started)}</span>
 			</div>
+            
             <div class="flex flex-col gap-1 items-center">
 				<span class="text-xs font-bold uppercase tracking-widest text-sub mb-2">total time sweeping</span>
-				
 				<div class="flex flex-col items-center leading-none">
 					<span class="text-6xl font-bold text-text">{timeObj.val}</span>
 					<span class="text-3xl font-medium text-text mt-1">{timeObj.unit}</span>
 				</div>
 			</div>
+
 			<div class="flex flex-col gap-1">
 				<span class="text-xs font-bold uppercase tracking-widest text-sub">total boards completed</span>
 				<span class="text-5xl font-bold text-text">{fmtCount(data.stats.completed)}</span>
 			</div>
 		</div>
 
-		<div class="space-y-24 text-sm leading-relaxed text-sub">
+        <div class="space-y-24 text-sm leading-relaxed text-sub">
 			<section>
 				<h2 class="mb-6 flex items-center gap-2 font-bold uppercase tracking-tight text-text">
 					<Info size={16} class="text-main" /> about
@@ -128,8 +128,7 @@ const formatTime = (seconds: number) => {
 				<p class="max-w-2xl">
 					Zsweep is a minimalist and customizable minesweeper game. It features many game modes, an
 					account system to save your sweeping history, and user-configurable features such as
-					themes and sounds. Zsweep attempts to emulate the focused, productive experience of modern
-					minimalist tools.
+					themes and sounds.
 				</p>
 			</section>
 
@@ -139,9 +138,7 @@ const formatTime = (seconds: number) => {
 				</h2>
 				<p>
 					You can use <kbd class="rounded bg-sub/20 px-1.5 py-0.5 font-bold text-text">tab</kbd> to
-					return to the home page. Open the theme palette by pressing
-					<kbd class="rounded bg-sub/20 px-1.5 py-0.5 font-bold text-text">esc</kbd>. There you can
-					access all functionality without touching your mouse.
+					return to the home page.
 				</p>
 			</section>
 
@@ -150,52 +147,21 @@ const formatTime = (seconds: number) => {
 					<Trophy size={16} class="text-main" /> stats
 				</h2>
 				<div class="space-y-4">
-					<p>
-						<span class="font-bold text-text">accuracy</span> — percentage of safe cells clicked without
-						hitting a mine or misflagging.
-					</p>
-					<p>
-						<span class="font-bold text-text">cells swept</span> — total volume of the grid successfully
-						cleared.
-					</p>
+					<p><span class="font-bold text-text">accuracy</span> — percentage of safe cells clicked.</p>
+					<p><span class="font-bold text-text">cells swept</span> — total volume of the grid cleared.</p>
 				</div>
-			</section>
-
-			<section class="border-t border-sub/10 pb-24 pt-12">
-				<div class="mb-6 flex items-center gap-2 font-bold uppercase tracking-tight text-text">
-					<Bomb size={16} class="text-main" /> support
-				</div>
-				<p>
-					If you encounter a bug, or have a feature request — join the community or open an issue on
-					GitHub. Created with love for the minimalist community.
-				</p>
 			</section>
 
 			<section class="border-t border-sub/10 pb-24 pt-12">
 				<h2 class="mb-6 flex items-center gap-2 font-bold uppercase tracking-tight text-text">
 					<Mail size={16} class="text-main" /> contact
 				</h2>
-
-				<p class="mb-8 max-w-2xl">
-					If you encounter a bug, have a feature request, or just want to say hi — you can reach me
-					directly through the following channels.
-				</p>
-
 				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-					<a
-						href="mailto:tommyguo024@outlook.com"
-						class="flex items-center justify-center gap-3 rounded-lg bg-sub/5 px-6 py-4 text-text transition-colors hover:bg-sub/10"
-					>
+					<a href="mailto:tommyguo024@outlook.com" class="flex items-center justify-center gap-3 rounded-lg bg-sub/5 px-6 py-4 text-text transition-colors hover:bg-sub/10">
 						<Mail size={18} />
 						<span class="font-bold">email</span>
 					</a>
-
-					<a
-						href="https://github.com/oug-t/zsweep"
-						target="_blank"
-						rel="noopener noreferrer"
-						class="flex items-center justify-center gap-3 rounded-lg bg-sub/5 px-6 py-4 text-text transition-colors hover:bg-sub/10"
-					>
+					<a href="https://github.com/oug-t/zsweep" target="_blank" rel="noopener noreferrer" class="flex items-center justify-center gap-3 rounded-lg bg-sub/5 px-6 py-4 text-text transition-colors hover:bg-sub/10">
 						<Github size={18} />
 						<span class="font-bold">github</span>
 					</a>
@@ -204,18 +170,13 @@ const formatTime = (seconds: number) => {
 		</div>
 	</div>
 
-	<div class="fixed bottom-8 flex w-full justify-between px-8 text-[10px] text-sub opacity-40">
+    <div class="fixed bottom-8 flex w-full justify-between px-8 text-[10px] text-sub opacity-40">
 		<div class="flex gap-6">
 			<div class="flex items-center gap-2">
 				<kbd class="rounded bg-sub/20 px-1.5 py-0.5 text-text">tab</kbd>
 				<span>- home</span>
 			</div>
-			<div class="flex items-center gap-2">
-				<kbd class="rounded bg-sub/20 px-1.5 py-0.5 text-text">esc</kbd>
-				<span>- search</span>
-			</div>
 		</div>
-
 		<div class="flex gap-6">
 			<div class="flex items-center gap-2">
 				<Palette size={12} />
