@@ -1,44 +1,55 @@
 <script lang="ts">
-	import { Bomb, Trophy, Keyboard, Info, Palette, User, LogOut, Mail, Github } from 'lucide-svelte';
+	import {
+		Bomb,
+		Trophy,
+		Keyboard,
+		Info,
+		Palette,
+		User,
+		LogOut,
+		Mail,
+		Github,
+		Code2,
+		GitPullRequest,
+		Cpu
+	} from 'lucide-svelte';
 	import { currentTheme } from '$lib/themeStore';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { supabase } from '$lib/supabase';
 
-	// --- PROPS (Svelte 4 Style) ---
-	export let data; 
+	export let data;
 
 	let currentUser: string | null = null;
 
-	// --- FORMATTING LOGIC ---
+	// --- FORMATTING ---
 	const fmtCount = (n: number) => {
 		if (n >= 1000000) return (n / 1000000).toFixed(1) + 'm';
 		if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
 		return n.toLocaleString();
 	};
 
-    const formatTime = (seconds: number) => {
-        const hours = seconds / 3600;
-        // This ensures 8.84 becomes "8.8"
-        if (hours >= 1) {
-            return { val: hours.toFixed(1), unit: 'hours' };
-        }
-        const mins = Math.floor(seconds / 60);
-        if (mins >= 1) return { val: mins, unit: 'minutes' };
-        return { val: seconds, unit: 'seconds' };
-    };
+	const formatTime = (seconds: number) => {
+		const hours = seconds / 3600;
+		if (hours >= 1) return { val: hours.toFixed(1), unit: 'hours' };
+		const mins = Math.floor(seconds / 60);
+		if (mins >= 1) return { val: mins, unit: 'minutes' };
+		return { val: seconds, unit: 'seconds' };
+	};
 
-    // --- REACTIVE DECLARATION (Svelte 4 Style) ---
-    // This replaces $derived() to fix your "runes mode" error
-    $: timeObj = formatTime(data.stats.seconds);
+	$: timeObj = formatTime(data.stats.seconds);
 
-	// --- AUTH LOGIC ---
+	// --- AUTH ---
 	onMount(async () => {
-		const { data: { session } } = await supabase.auth.getSession();
-		if (session?.user) {
+		const {
+			data: { session }
+		} = await supabase.auth.getSession();
+		if (session?.user)
 			currentUser = session.user.user_metadata.full_name || session.user.email?.split('@')[0];
-		}
-		const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+
+		const {
+			data: { subscription }
+		} = supabase.auth.onAuthStateChange((_event, session) => {
 			currentUser = session?.user
 				? session.user.user_metadata.full_name || session.user.email?.split('@')[0]
 				: null;
@@ -61,38 +72,67 @@
 
 <svelte:window on:keydown={handleKeydown} />
 
-<div class="relative flex min-h-screen flex-col items-center bg-bg p-8 font-mono text-text transition-colors duration-300">
-    <div class="animate-in fade-in slide-in-from-top-4 mb-16 flex w-full max-w-5xl items-center justify-between duration-500">
-		<a href="/" class="flex select-none items-center gap-2 transition-opacity hover:opacity-80">
-			<Bomb size={24} class="text-main" />
-			<h1 class="text-2xl font-bold tracking-tight text-text">
-				z<span class="text-main">sweep</span>
-			</h1>
+<div
+	class="relative flex min-h-screen flex-col items-center bg-bg p-8 font-mono text-text transition-colors duration-300"
+>
+	<div
+		class="animate-in fade-in slide-in-from-top-4 mb-16 flex w-full max-w-5xl items-center justify-between duration-500"
+	>
+		<a
+			href="/"
+			class="group flex select-none items-center gap-3 transition-opacity hover:opacity-80"
+		>
+			<Bomb
+				size={28}
+				strokeWidth={2.5}
+				class="text-main transition-transform group-hover:rotate-12"
+			/>
+			<div class="flex flex-col">
+				<h1 class="text-2xl font-black leading-none tracking-tighter text-text">
+					z<span class="text-main">sweep</span>
+				</h1>
+				<span class="text-[10px] font-bold uppercase tracking-[0.2em] text-sub opacity-50"
+					>About</span
+				>
+			</div>
 		</a>
 
 		<div class="flex items-center gap-6 text-sm">
 			{#if currentUser}
 				<div class="group relative z-20">
-					<button class="flex items-center gap-2 rounded px-3 py-1.5 text-main transition-all hover:bg-sub/10">
+					<button
+						class="flex items-center gap-2 rounded px-3 py-1.5 text-main transition-all hover:bg-sub/10"
+					>
 						<User size={16} />
 						<span class="font-bold">{currentUser}</span>
 					</button>
-					<div class="invisible absolute right-0 top-full pt-2 opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100">
-						<div class="flex min-w-[160px] flex-col rounded border border-sub/20 bg-bg p-1 font-mono text-sm shadow-xl">
-							<a href="/profile" class="flex items-center gap-2 rounded px-3 py-2 text-sub transition-colors hover:bg-sub/10 hover:text-text">
-								<User size={14} />
-								<span>Profile</span>
+					<div
+						class="invisible absolute right-0 top-full pt-2 opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100"
+					>
+						<div
+							class="flex min-w-[160px] flex-col rounded border border-sub/20 bg-bg p-1 font-mono text-sm shadow-xl"
+						>
+							<a
+								href="/profile"
+								class="flex items-center gap-2 rounded px-3 py-2 text-sub transition-colors hover:bg-sub/10 hover:text-text"
+							>
+								<User size={14} /><span>Profile</span>
 							</a>
 							<div class="my-1 h-[1px] bg-sub/10"></div>
-							<button on:click={handleLogout} class="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sub transition-colors hover:bg-error/10 hover:text-error">
-								<LogOut size={14} />
-								<span>Sign Out</span>
+							<button
+								on:click={handleLogout}
+								class="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sub transition-colors hover:bg-error/10 hover:text-error"
+							>
+								<LogOut size={14} /><span>Sign Out</span>
 							</button>
 						</div>
 					</div>
 				</div>
 			{:else}
-				<a href="/login" class="flex h-8 w-8 items-center justify-center rounded text-sub transition-colors hover:bg-sub/10 hover:text-text">
+				<a
+					href="/login"
+					class="flex h-8 w-8 items-center justify-center rounded text-sub transition-colors hover:bg-sub/10 hover:text-text"
+				>
 					<User size={18} />
 				</a>
 			{/if}
@@ -100,95 +140,198 @@
 	</div>
 
 	<div class="animate-in fade-in w-full max-w-4xl duration-700">
-		<div class="mb-24 grid grid-cols-1 gap-12 text-center md:grid-cols-3">
+		<div class="mb-20 grid grid-cols-1 gap-12 text-center md:grid-cols-3">
 			<div class="flex flex-col gap-1">
-				<span class="text-xs font-bold uppercase tracking-widest text-sub">total boards started</span>
-				<span class="text-5xl font-bold text-text">{fmtCount(data.stats.started)}</span>
+				<span class="text-[10px] font-bold uppercase tracking-widest text-sub opacity-50"
+					>global boards started</span
+				>
+				<span class="text-5xl font-black text-text">{fmtCount(data.stats.started)}</span>
 			</div>
-            
-            <div class="flex flex-col gap-1 items-center">
-				<span class="text-xs font-bold uppercase tracking-widest text-sub mb-2">total time sweeping</span>
+
+			<div class="flex flex-col items-center gap-1">
+				<span class="mb-2 text-[10px] font-bold uppercase tracking-widest text-sub opacity-50"
+					>total time sweeping</span
+				>
 				<div class="flex flex-col items-center leading-none">
-					<span class="text-6xl font-bold text-text">{timeObj.val}</span>
-					<span class="text-3xl font-medium text-text mt-1">{timeObj.unit}</span>
+					<span class="text-6xl font-black text-main">{timeObj.val}</span>
+					<span class="mt-2 text-xl font-bold text-sub">{timeObj.unit}</span>
 				</div>
 			</div>
 
 			<div class="flex flex-col gap-1">
-				<span class="text-xs font-bold uppercase tracking-widest text-sub">total boards completed</span>
-				<span class="text-5xl font-bold text-text">{fmtCount(data.stats.completed)}</span>
+				<span class="text-[10px] font-bold uppercase tracking-widest text-sub opacity-50"
+					>global boards cleared</span
+				>
+				<span class="text-5xl font-black text-text">{fmtCount(data.stats.completed)}</span>
 			</div>
 		</div>
 
-        <div class="space-y-24 text-sm leading-relaxed text-sub">
+		<div class="space-y-20 text-sm leading-relaxed text-sub">
 			<section>
-				<h2 class="mb-6 flex items-center gap-2 font-bold uppercase tracking-tight text-text">
-					<Info size={16} class="text-main" /> about
+				<h2
+					class="mb-6 flex items-center gap-3 text-lg font-black uppercase tracking-tight text-text"
+				>
+					<Info size={20} class="text-main" /> The Philosophy
 				</h2>
-				<p class="max-w-2xl">
-					Zsweep is a minimalist and customizable minesweeper game. It features many game modes, an
-					account system to save your sweeping history, and user-configurable features such as
-					themes and sounds.
+				<p class="max-w-3xl text-base">
+					Traditional Minesweeper clones rely heavily on mouse inputs, breaking the <span
+						class="font-bold text-text">flow state</span
+					>.
+					<strong class="text-main">zsweep</strong> reimagines the classic logic puzzle as a keyboard-centric
+					experience. By implementing Vim-style motions (`hjkl`, `w`, `b`) and instant feedback, we aim
+					to create the most efficient and satisfying sweeping engine for developers.
 				</p>
 			</section>
 
 			<section>
-				<h2 class="mb-6 flex items-center gap-2 font-bold uppercase tracking-tight text-text">
-					<Keyboard size={16} class="text-main" /> keybinds
+				<h2
+					class="mb-6 flex items-center gap-3 text-lg font-black uppercase tracking-tight text-text"
+				>
+					<Cpu size={20} class="text-main" /> The Stack
 				</h2>
-				<p>
-					You can use <kbd class="rounded bg-sub/20 px-1.5 py-0.5 font-bold text-text">tab</kbd> to
-					return to the home page.
-				</p>
-			</section>
-
-			<section>
-				<h2 class="mb-6 flex items-center gap-2 font-bold uppercase tracking-tight text-text">
-					<Trophy size={16} class="text-main" /> stats
-				</h2>
-				<div class="space-y-4">
-					<p><span class="font-bold text-text">accuracy</span> — percentage of safe cells clicked.</p>
-					<p><span class="font-bold text-text">cells swept</span> — total volume of the grid cleared.</p>
+				<div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+					<div
+						class="flex flex-col gap-2 rounded-lg border border-sub/10 bg-sub/5 p-4 transition-colors hover:border-main/30"
+					>
+						<span class="font-bold text-text">Svelte 5</span>
+						<span class="text-xs">Powered by Runes for fine-grained reactivity.</span>
+					</div>
+					<div
+						class="flex flex-col gap-2 rounded-lg border border-sub/10 bg-sub/5 p-4 transition-colors hover:border-main/30"
+					>
+						<span class="font-bold text-text">TypeScript</span>
+						<span class="text-xs">Strict typing for game logic and state machines.</span>
+					</div>
+					<div
+						class="flex flex-col gap-2 rounded-lg border border-sub/10 bg-sub/5 p-4 transition-colors hover:border-main/30"
+					>
+						<span class="font-bold text-text">Supabase</span>
+						<span class="text-xs">Real-time auth and global leaderboards.</span>
+					</div>
+					<div
+						class="flex flex-col gap-2 rounded-lg border border-sub/10 bg-sub/5 p-4 transition-colors hover:border-main/30"
+					>
+						<span class="font-bold text-text">Tailwind</span>
+						<span class="text-xs">Utility-first styling for theming engine.</span>
+					</div>
 				</div>
 			</section>
 
-			<section class="border-t border-sub/10 pb-24 pt-12">
-				<h2 class="mb-6 flex items-center gap-2 font-bold uppercase tracking-tight text-text">
-					<Mail size={16} class="text-main" /> contact
+			<section>
+				<h2
+					class="mb-6 flex items-center gap-3 text-lg font-black uppercase tracking-tight text-text"
+				>
+					<Keyboard size={20} class="text-main" /> Vim Grammar
 				</h2>
+				<div class="grid gap-x-12 gap-y-4 md:grid-cols-2">
+					<div class="flex justify-between border-b border-sub/10 pb-2">
+						<span>Movement</span>
+						<span class="font-mono font-bold text-text">h j k l</span>
+					</div>
+					<div class="flex justify-between border-b border-sub/10 pb-2">
+						<span>Jump Words (Skip Open)</span>
+						<span class="font-mono font-bold text-text">w / b</span>
+					</div>
+					<div class="flex justify-between border-b border-sub/10 pb-2">
+						<span>Search Number</span>
+						<span class="font-mono font-bold text-text">/ [1-8]</span>
+					</div>
+					<div class="flex justify-between border-b border-sub/10 pb-2">
+						<span>Flag / Reveal</span>
+						<span class="font-mono font-bold text-text">Space / Enter</span>
+					</div>
+					<div class="flex justify-between border-b border-sub/10 pb-2">
+						<span>Restart</span>
+						<span class="font-mono font-bold text-text">Tab</span>
+					</div>
+					<div class="flex justify-between border-b border-sub/10 pb-2">
+						<span>Command Palette</span>
+						<span class="font-mono font-bold text-text">Esc</span>
+					</div>
+				</div>
+			</section>
+
+			<section class="border-t border-sub/10 pt-16">
+				<h2
+					class="mb-6 flex items-center gap-3 text-lg font-black uppercase tracking-tight text-text"
+				>
+					<GitPullRequest size={20} class="text-main" /> Open Source
+				</h2>
+				<div class="mb-8 flex flex-col gap-4 text-base">
+					<p>
+						zsweep is fully open source. We are actively looking for contributors to help with
+						<strong class="text-text">Mobile Support</strong> (Touch Events) and the
+						<strong class="text-text">Chording Animation</strong> engine.
+					</p>
+
+					<div class="my-4">
+						<span class="mb-4 block text-xs font-bold uppercase tracking-widest text-sub opacity-50"
+							>Special thanks to our contributors</span
+						>
+						<a
+							href="https://github.com/oug-t/zsweep/graphs/contributors"
+							class="inline-block transition-opacity hover:opacity-80"
+						>
+							<img
+								src="https://contrib.rocks/image?repo=oug-t/zsweep"
+								alt="Contributors"
+								class="h-12"
+							/>
+						</a>
+					</div>
+				</div>
+
 				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-					<a href="mailto:tommyguo024@outlook.com" class="flex items-center justify-center gap-3 rounded-lg bg-sub/5 px-6 py-4 text-text transition-colors hover:bg-sub/10">
-						<Mail size={18} />
-						<span class="font-bold">email</span>
+					<a
+						href="https://github.com/oug-t/zsweep"
+						target="_blank"
+						class="group flex items-center justify-center gap-3 rounded-lg border border-sub/20 bg-sub/5 px-6 py-4 text-text transition-all hover:border-main hover:bg-sub/10"
+					>
+						<Github size={20} class="transition-transform group-hover:scale-110" />
+						<div class="flex flex-col items-start">
+							<span class="font-bold">GitHub Repository</span>
+							<span class="text-xs text-sub group-hover:text-main">Star, Fork, & Contribute</span>
+						</div>
 					</a>
-					<a href="https://github.com/oug-t/zsweep" target="_blank" rel="noopener noreferrer" class="flex items-center justify-center gap-3 rounded-lg bg-sub/5 px-6 py-4 text-text transition-colors hover:bg-sub/10">
-						<Github size={18} />
-						<span class="font-bold">github</span>
+					<a
+						href="https://github.com/oug-t/zsweep/issues"
+						target="_blank"
+						class="group flex items-center justify-center gap-3 rounded-lg border border-sub/20 bg-sub/5 px-6 py-4 text-text transition-all hover:border-main hover:bg-sub/10"
+					>
+						<Code2 size={20} class="transition-transform group-hover:scale-110" />
+						<div class="flex flex-col items-start">
+							<span class="font-bold">View Roadmap</span>
+							<span class="text-xs text-sub group-hover:text-main">Help us build v1.1</span>
+						</div>
 					</a>
 				</div>
 			</section>
 		</div>
 	</div>
 
-    <div class="fixed bottom-8 flex w-full justify-between px-8 text-[10px] text-sub opacity-40">
-		<div class="flex gap-6">
-			<div class="flex items-center gap-2">
-				<kbd class="rounded bg-sub/20 px-1.5 py-0.5 text-text">tab</kbd>
-				<span>- home</span>
+	<div
+		class="pointer-events-none fixed bottom-6 left-0 right-0 flex w-full select-none justify-between px-8"
+	>
+		<div
+			class="flex flex-col gap-2 text-[10px] font-bold uppercase tracking-widest text-sub opacity-40"
+		>
+			<div class="flex items-center gap-3">
+				<kbd
+					class="flex min-w-[36px] justify-center rounded bg-sub/20 px-1.5 py-0.5 font-mono text-text shadow-sm"
+					>tab</kbd
+				>
+				<span class="h-[1px] w-3 bg-sub/30"></span>
+				<span>Home</span>
 			</div>
 		</div>
-		<div class="flex gap-6">
+
+		<div
+			class="flex flex-col justify-end text-right text-[10px] font-bold uppercase tracking-widest text-sub opacity-40"
+		>
 			<div class="flex items-center gap-2">
-				<Palette size={12} />
 				<span>{$currentTheme?.label || 'default'}</span>
+				<Palette size={10} />
 			</div>
-			<span>v1.0.0</span>
 		</div>
 	</div>
 </div>
-
-<style>
-	kbd {
-		font-family: inherit;
-	}
-</style>
