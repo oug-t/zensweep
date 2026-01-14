@@ -25,8 +25,8 @@
 		Palette,
 		Search,
 		ChevronRight,
-		Info,
-		X
+		X,
+		Info
 	} from 'lucide-svelte';
 	import ResultView from '$lib/components/ResultView.svelte';
 	import { supabase } from '$lib/supabase';
@@ -36,6 +36,7 @@
 	import { handleVimKey } from '$lib/game/input/vim';
 
 	// --- PROPS ---
+	// Using export let instead of $props() to avoid the "runes mode" error
 	export let data;
 
 	// --- CONFIG ---
@@ -50,8 +51,8 @@
 	let gameMode: 'time' | 'standard' = 'standard';
 	let currentSize = GRID_SIZES[0];
 	let timeLimit = 15;
-
-	// Custom Settings State
+	let customTime = 60;
+	let isCustomTime = false;
 	let showCustomModal = false;
 	let customConfig = {
 		rows: 20,
@@ -64,7 +65,6 @@
 	let vimBuffer = '';
 	let lastKey = '';
 	let lastKeyTime = 0;
-
 	let isSearchMode = false;
 	let searchTerm = '';
 	let searchMatches: { r: number; c: number }[] = [];
@@ -100,7 +100,13 @@
 	let isMouseDown = false;
 	let currentUser: string | null = null;
 
-	// --- REACTIVE DECLARATIONS ---
+	// --- REACTIVE DECLARATIONS (Svelte 4 Style) ---
+	$: StatusIcon = (() => {
+		if (gameState === 'finished') return Flower2;
+		if (isMouseDown && gameState !== 'pending') return Flame;
+		return Bomb;
+	})();
+
 	$: filteredThemes = THEMES.filter((t) =>
 		t.label.toLowerCase().includes(searchQuery.toLowerCase())
 	);
@@ -130,39 +136,13 @@
 		setTimeout(() => searchInputEl?.focus(), 50);
 	}
 
-	function openCustomModal() {
-		if (gameMode === 'standard') {
-			customConfig.rows = currentSize.rows;
-			customConfig.cols = currentSize.cols;
-			customConfig.mines = currentSize.mines;
-		} else {
-			customConfig.time = timeLimit;
-		}
-		showCustomModal = true;
-	}
-
-	function applyCustomSettings() {
-		if (gameMode === 'standard') {
-			const r = Math.max(5, Math.min(50, customConfig.rows));
-			const c = Math.max(5, Math.min(50, customConfig.cols));
-			// Max mines is 85% of grid
-			const maxMines = Math.floor(r * c * 0.85);
-			const m = Math.max(1, Math.min(maxMines, customConfig.mines));
-
-			currentSize = { label: 'Custom', rows: r, cols: c, mines: m };
-		} else {
-			const t = Math.max(10, Math.min(999, customConfig.time));
-			setTime(t);
-		}
-		showCustomModal = false;
-		fullReset();
-	}
-
 	function setMode(mode: 'time' | 'standard') {
 		gameMode = mode;
+
 		if (gameMode === 'time' && currentSize.label !== '9x9') {
 			currentSize = GRID_SIZES[0];
 		}
+
 		fullReset();
 	}
 
@@ -173,9 +153,11 @@
 
 	function setSize(size: (typeof GRID_SIZES)[0]) {
 		currentSize = size;
+
 		if (currentSize.label !== '9x9' && gameMode === 'time') {
 			gameMode = 'standard';
 		}
+
 		fullReset();
 	}
 
@@ -259,13 +241,12 @@
 		}
 
 		let result;
-		// Chording Logic: if open and flags match neighbors, reveal around
+
 		if (grid[r][c].isOpen && countFlagsAround(grid, r, c) === grid[r][c].neighborCount) {
 			result = revealCellsAround(grid, r, c);
 		} else {
 			result = revealCell(grid, r, c);
 		}
-
 		grid = result.grid;
 		if (result.gameOver) {
 			triggerExplosion();
@@ -279,7 +260,7 @@
 
 	function toggleFlag(r: number, c: number) {
 		if (gameState === 'finished' || grid[r][c].isOpen) return;
-		grid[r][c].isFlagged = !grid[r][c].isFlagged;
+		grid[r][c].isFlagged = !grid[r][c].isFlagged; // <--- Change to [r][c]
 		minesLeft += grid[r][c].isFlagged ? -1 : 1;
 		totalClicks++;
 		clicksThisSecond++;
@@ -304,15 +285,13 @@
 	}
 
 	function handleInput(e: KeyboardEvent) {
-		if (showPalette || showCustomModal) {
+		// 1. Palette Handling
+		if (showPalette) {
 			if (e.key === 'Escape') {
-				if (showPalette) {
-					if (paletteView === 'themes') {
-						paletteView = 'root';
-						searchQuery = '';
-					} else showPalette = false;
-				}
-				if (showCustomModal) showCustomModal = false;
+				if (paletteView === 'themes') {
+					paletteView = 'root';
+					searchQuery = '';
+				} else showPalette = false;
 			}
 			return;
 		}
@@ -348,6 +327,7 @@
 		}
 
 		const now = Date.now();
+
 		if (e.key === 'g' && lastKey === 'g' && now - lastKeyTime < 500) {
 			cursor = { r: 0, c: cursor.c };
 			lastKey = '';
@@ -365,16 +345,21 @@
 		if (e.key === 'w') {
 			let jumps = mult;
 			let { r, c } = cursor;
+
 			while (jumps > 0) {
 				c++;
 				if (c >= currentSize.cols) {
 					c = 0;
 					r++;
 				}
+
 				let loops = 0;
-				const maxLoops = currentSize.rows * currentSize.cols;
+				const maxLoops = currentSize.rows * currentSize.cols; // Prevent infinite loop
+
 				while (r < currentSize.rows && loops < maxLoops) {
-					if (grid[r] && grid[r][c] && !grid[r][c].isOpen) break;
+					if (grid[r] && grid[r][c] && !grid[r][c].isOpen) {
+						break;
+					}
 					c++;
 					if (c >= currentSize.cols) {
 						c = 0;
@@ -384,24 +369,32 @@
 				}
 				jumps--;
 			}
+
 			if (r < currentSize.rows) cursor = { r, c };
-			vimBuffer = '';
+			vimBuffer = ''; // Clear buffer
 			return;
 		}
 
 		if (e.key === 'b') {
 			let jumps = mult;
 			let { r, c } = cursor;
+
 			while (jumps > 0) {
+				// Always move at least one step back
 				c--;
 				if (c < 0) {
 					c = currentSize.cols - 1;
 					r--;
 				}
+
+				// Scan backward
 				let loops = 0;
 				const maxLoops = currentSize.rows * currentSize.cols;
+
 				while (r >= 0 && loops < maxLoops) {
-					if (grid[r] && grid[r][c] && !grid[r][c].isOpen) break;
+					if (grid[r] && grid[r][c] && !grid[r][c].isOpen) {
+						break;
+					}
 					c--;
 					if (c < 0) {
 						c = currentSize.cols - 1;
@@ -411,12 +404,14 @@
 				}
 				jumps--;
 			}
+
 			if (r >= 0) cursor = { r, c };
 			vimBuffer = '';
 			return;
 		}
 
 		const action = handleVimKey(e.key);
+
 		if (action) {
 			e.preventDefault();
 			if (action.type === 'START_SEARCH') {
@@ -425,6 +420,7 @@
 				return;
 			}
 
+			// Search Navigation (n / N)
 			if (action.type === 'NEXT_MATCH' && searchMatches.length > 0) {
 				matchIndex = (matchIndex + 1) % searchMatches.length;
 				cursor = searchMatches[matchIndex];
@@ -436,6 +432,7 @@
 				return;
 			}
 
+			// Buffer Building
 			if (action.type === 'DIGIT') {
 				vimBuffer += action.value;
 				return;
@@ -446,6 +443,7 @@
 				return;
 			}
 
+			// Movement Actions
 			if (action.type === 'START_ROW') {
 				cursor = { r: cursor.r, c: 0 };
 				vimBuffer = '';
@@ -461,18 +459,53 @@
 				cursor.r = Math.max(0, Math.min(currentSize.rows - 1, cursor.r + action.dy * mult));
 				cursor.c = Math.max(0, Math.min(currentSize.cols - 1, cursor.c + action.dx * mult));
 				vimBuffer = '';
-			} else if (action.type === 'FLAG') {
+			}
+			// Game Actions
+			else if (action.type === 'FLAG') {
 				toggleFlag(cursor.r, cursor.c);
 				vimBuffer = '';
 			} else if (action.type === 'REVEAL') {
 				handleClick(cursor.r, cursor.c);
 				vimBuffer = '';
 			} else if (action.type === 'SMART') {
+				// Spacebar logic: If closed, flag it. If open, chord it.
 				if (!grid[cursor.r][cursor.c].isOpen) toggleFlag(cursor.r, cursor.c);
 				else attemptChord(cursor.r, cursor.c);
 				vimBuffer = '';
 			}
 		}
+	}
+
+	function openCustomModal() {
+		// Pre-fill with current values
+		if (gameMode === 'standard') {
+			customConfig.rows = currentSize.rows;
+			customConfig.cols = currentSize.cols;
+			customConfig.mines = currentSize.mines;
+		} else {
+			customConfig.time = timeLimit;
+		}
+		showCustomModal = true;
+	}
+
+	function applyCustomSettings() {
+		if (gameMode === 'standard') {
+			// Validation limits
+			const r = Math.max(5, Math.min(50, customConfig.rows));
+			const c = Math.max(5, Math.min(50, customConfig.cols));
+
+			// Ensure not too many mines (max 85% of grid)
+			const maxMines = Math.floor(r * c * 0.85);
+			const m = Math.max(1, Math.min(maxMines, customConfig.mines));
+
+			// Create a custom size object
+			currentSize = { label: 'Custom', rows: r, cols: c, mines: m };
+		} else {
+			const t = Math.max(10, Math.min(999, customConfig.time));
+			setTime(t);
+		}
+		showCustomModal = false;
+		fullReset();
 	}
 
 	function executeSearch() {
@@ -558,28 +591,6 @@
 		});
 	}
 
-	async function saveResult(win: boolean) {
-		const {
-			data: { session }
-		} = await supabase.auth.getSession();
-		let timeTaken = gameMode === 'standard' ? timer : Math.max(0, timeLimit - timer);
-		const { error } = await supabase.from('game_results').insert({
-			user_id: session?.user?.id || null,
-			mode: gameMode,
-			setting: gameMode === 'time' ? timeLimit.toString() : currentSize.label,
-			win,
-			time: timeTaken,
-			grids: gameMode === 'standard' ? (win ? 1 : 0) : gridsSolved,
-			total_mines: win
-				? gameMode === 'standard'
-					? currentSize.mines
-					: gridsSolved * currentSize.mines
-				: 0,
-			accuracy: finalAccuracy
-		});
-		if (error) console.error('Error saving result:', error);
-	}
-
 	onMount(async () => {
 		const {
 			data: { session }
@@ -593,6 +604,35 @@
 		await supabase.auth.signOut();
 		currentUser = null;
 		fullReset();
+	}
+
+	// inside +page.svelte
+
+	async function saveResult(win: boolean) {
+		// Get the current user session
+		const {
+			data: { session }
+		} = await supabase.auth.getSession();
+
+		let timeTaken = gameMode === 'standard' ? timer : Math.max(0, timeLimit - timer);
+
+		// Explicitly handle the user_id for the insert
+		const { error } = await supabase.from('game_results').insert({
+			user_id: session?.user?.id || null, // Saves as NULL if not logged in
+			mode: gameMode,
+			setting: gameMode === 'time' ? timeLimit.toString() : currentSize.label,
+			win,
+			time: timeTaken,
+			grids: gameMode === 'standard' ? (win ? 1 : 0) : gridsSolved,
+			total_mines: win
+				? gameMode === 'standard'
+					? currentSize.mines
+					: gridsSolved * currentSize.mines
+				: 0,
+			accuracy: finalAccuracy
+		});
+
+		if (error) console.error('Error saving result:', error);
 	}
 </script>
 
@@ -750,26 +790,11 @@
 					{/each}
 				{/if}
 
-				<div class="mx-1 h-3 w-[1px] bg-sub/20"></div>
-
-				<button
-					class="text-sub transition-colors hover:text-main"
-					on:click={openCustomModal}
-					title="Custom Settings"
+				<button class="ml-2 text-sub hover:text-text" on:click={openPalette}
+					><Wrench size={12} /></button
 				>
-					<Wrench size={12} />
-				</button>
-
-				<button
-					class="text-sub transition-colors hover:text-main"
-					on:click={openPalette}
-					title="Themes"
-				>
-					<Palette size={12} />
-				</button>
 			</div>
 		</div>
-
 		<div class="animate-in fade-in flex flex-col gap-2 duration-300">
 			<div class="mb-2 flex select-none items-end justify-between px-1 text-main">
 				<div class="flex w-12 flex-col">
@@ -885,84 +910,6 @@
 		</div>
 	{/if}
 
-	{#if showCustomModal}
-		<div
-			class="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm duration-200"
-			on:click|self={() => (showCustomModal = false)}
-		>
-			<div class="w-full max-w-sm rounded-xl border border-sub/20 bg-bg p-6 shadow-2xl">
-				<div class="mb-6 flex items-center justify-between">
-					<h2 class="flex items-center gap-2 text-lg font-bold text-text">
-						<Wrench size={18} class="text-main" />
-						<span>Custom {gameMode === 'standard' ? 'Grid' : 'Time'}</span>
-					</h2>
-					<button
-						on:click={() => (showCustomModal = false)}
-						class="text-sub transition-colors hover:text-error"
-					>
-						<X size={18} />
-					</button>
-				</div>
-
-				<div class="flex flex-col gap-4">
-					{#if gameMode === 'standard'}
-						<div class="grid grid-cols-2 gap-4">
-							<div class="flex flex-col gap-1">
-								<label class="text-[10px] font-bold uppercase tracking-widest text-sub">Rows</label>
-								<input
-									type="number"
-									bind:value={customConfig.rows}
-									min="5"
-									max="50"
-									class="rounded border border-sub/20 bg-sub/5 p-2 text-sm font-bold text-text outline-none transition-colors focus:border-main"
-								/>
-							</div>
-							<div class="flex flex-col gap-1">
-								<label class="text-[10px] font-bold uppercase tracking-widest text-sub">Cols</label>
-								<input
-									type="number"
-									bind:value={customConfig.cols}
-									min="5"
-									max="50"
-									class="rounded border border-sub/20 bg-sub/5 p-2 text-sm font-bold text-text outline-none transition-colors focus:border-main"
-								/>
-							</div>
-						</div>
-						<div class="flex flex-col gap-1">
-							<label class="text-[10px] font-bold uppercase tracking-widest text-sub">Mines</label>
-							<input
-								type="number"
-								bind:value={customConfig.mines}
-								min="1"
-								class="rounded border border-sub/20 bg-sub/5 p-2 text-sm font-bold text-text outline-none transition-colors focus:border-main"
-							/>
-						</div>
-					{:else}
-						<div class="flex flex-col gap-1">
-							<label class="text-[10px] font-bold uppercase tracking-widest text-sub"
-								>Time Limit (Seconds)</label
-							>
-							<input
-								type="number"
-								bind:value={customConfig.time}
-								min="10"
-								max="999"
-								class="rounded border border-sub/20 bg-sub/5 p-2 text-sm font-bold text-text outline-none transition-colors focus:border-main"
-							/>
-						</div>
-					{/if}
-
-					<button
-						on:click={applyCustomSettings}
-						class="mt-2 w-full rounded-lg bg-main py-2.5 text-xs font-bold uppercase tracking-widest text-bg transition-opacity hover:opacity-90"
-					>
-						Apply Settings
-					</button>
-				</div>
-			</div>
-		</div>
-	{/if}
-
 	{#if isSearchMode}
 		<div
 			class="animate-in fade-in slide-in-from-bottom-2 fixed bottom-20 left-1/2 z-50 -translate-x-1/2"
@@ -1006,8 +953,8 @@
 
 			<div class="flex items-center gap-3">
 				<kbd
-					class="flex min-w-[36px] justify-center rounded bg-sub/20 px-1.5 py-0.5 font-mono text-text shadow-sm"
-					>enter</kbd
+					class="flex min-w-[36px] justify-center rounded bg-sub/20
+                px-1.5 py-0.5 font-mono text-text shadow-sm">enter</kbd
 				>
 				<span class="h-[1px] w-3 bg-sub/30"></span>
 				<span>reveal</span>
