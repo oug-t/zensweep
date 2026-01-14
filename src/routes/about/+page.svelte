@@ -17,6 +17,7 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { supabase } from '$lib/supabase';
+	import { injectAnalytics } from '@vercel/analytics/sveltekit';
 
 	export let data;
 

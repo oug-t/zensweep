@@ -44,6 +44,7 @@
 		"@supabase/ssr": "^0.8.0",
 		"@supabase/supabase-js": "^2.90.1",
 		"@types/canvas-confetti": "^1.9.0",
+		"@vercel/analytics": "^1.6.1",
 		"canvas-confetti": "^1.9.4",
 		"chart.js": "^4.5.1",
 		"lodash": "^4.17.21",
