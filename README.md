@@ -141,7 +141,7 @@ npm run dev
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## Contributing
+## Contribution
 - We are actively looking for contributors!
 
 - Contributions are what make the open source community such an amazing place to learn, inspire, and create. Whether you are fixing a typo, optimizing the 3BV algorithm, or adding a new theme, your help is greatly appreciated.
@@ -161,15 +161,6 @@ npm run dev
 - Open a Pull Request
 
 - Good First Issues: Check out the Issues tab for tickets labeled good first issue if you are new to the codebase!
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-## Contributors
-
-Thanks to these wonderful people for helping improve zsweep:
-
-* **[@flo-bit](https://github.com/flo-bit)** - Implemented the initial Chording logic (#27)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
