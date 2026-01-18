@@ -64,16 +64,16 @@
 
 ## About The Project
 
-https://github.com/user-attachments/assets/6030f51b-11f3-4d0b-ab13-0e449c9b1b93
-
 **zsweep** is a modern reimagining of Minesweeper, inspired by the "Monkeytype" aesthetic. It strips away the clutter of traditional Windows-95 clones to focus purely on speed, accuracy, and flow state.
 
-Most Minesweeper clones are ugly, click-heavy, and lack detailed stats. zsweep fixes this by providing:
+https://github.com/user-attachments/assets/6030f51b-11f3-4d0b-ab13-0e449c9b1b93
+
+Most Minesweeper clones are old-fashioned, click-heavy, and lack detailed stats. zsweep fixes this by providing:
 * **Keyboard-first navigation** (Tab to restart, Esc for commands).
 * **Advanced metrics** like 3BV/s (Bechtel's Board Benchmark per second).
-* **A "Time Mode"** that challenges you to solve as many grids as possible in 15/30/60 seconds.
+* **A "Time Mode"** that challenges you to solve as many grids as possible in 15/30/60 seconds. 
 
-Whether you are a competitive sweeper or just looking for a zen break, zsweep is designed to feel "just right."
+Whether you are a competitive sweeper or just looking for a zen break, zsweep is designed to feel "just right.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -184,6 +184,18 @@ Project Link: https://github.com/oug-t/zsweep
 - Supabase for making the backend effortless.
 
 - Lucide Icons for the beautiful SVG set.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Star History
+
+<a href="https://star-history.com/#oug-t/zsweep&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=oug-t/zsweep&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=oug-t/zsweep&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=oug-t/zsweep&type=Date" />
+ </picture>
+</a>
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
