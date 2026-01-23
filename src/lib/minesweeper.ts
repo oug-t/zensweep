@@ -1,5 +1,3 @@
-// src/lib/minesweeper.ts
-
 export type Cell = {
 	row: number;
 	col: number;
@@ -18,9 +16,37 @@ export const DIRECTIONS = [
 	[1, -1],
 	[1, 0],
 	[1, 1]
-];
+] as const;
 
-// 1. Create an EMPTY Board (No mines yet)
+export type RevealResult = {
+	grid: Cell[][];
+	gameOver: boolean;
+};
+
+function inBounds(grid: Cell[][], r: number, c: number): boolean {
+	return r >= 0 && r < grid.length && c >= 0 && c < grid[0].length;
+}
+
+function forEachNeighbor(
+	grid: Cell[][],
+	r: number,
+	c: number,
+	fn: (nr: number, nc: number) => void
+): void {
+	for (const [dr, dc] of DIRECTIONS) {
+		const nr = r + dr;
+		const nc = c + dc;
+		if (inBounds(grid, nr, nc)) {
+			fn(nr, nc);
+		}
+	}
+}
+
+function idx(r: number, c: number, cols: number): number {
+	return r * cols + c;
+}
+
+/** Create an empty grid with all cells closed and no mines. */
 export function createGrid(rows: number, cols: number): Cell[][] {
 	return Array.from({ length: rows }, (_, r) =>
 		Array.from({ length: cols }, (_, c) => ({
@@ -34,154 +60,169 @@ export function createGrid(rows: number, cols: number): Cell[][] {
 	);
 }
 
-// 2. Place Mines (Run this ON THE FIRST CLICK)
-export function placeMines(grid: Cell[][], mines: number, firstClick: { r: number; c: number }) {
+/**
+ * Place mines, avoiding the first click cell and its neighbors.
+ * Mutates the grid in place.
+ */
+export function placeMines(
+	grid: Cell[][],
+	mines: number,
+	firstClick: { r: number; c: number }
+): void {
 	const rows = grid.length;
 	const cols = grid[0].length;
-	let minesPlaced = 0;
 
-	// Define the "Safe Zone" (The clicked cell + its 8 neighbors)
-	const safeZone = new Set<string>();
-	safeZone.add(`${firstClick.r},${firstClick.c}`);
-
-	DIRECTIONS.forEach(([dr, dc]) => {
-		const nr = firstClick.r + dr;
-		const nc = firstClick.c + dc;
-		if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
-			safeZone.add(`${nr},${nc}`);
-		}
+	const safeZone = new Set<number>();
+	safeZone.add(idx(firstClick.r, firstClick.c, cols));
+	forEachNeighbor(grid, firstClick.r, firstClick.c, (nr, nc) => {
+		safeZone.add(idx(nr, nc, cols));
 	});
 
-	// Randomly place mines
+	let minesPlaced = 0;
 	while (minesPlaced < mines) {
 		const r = Math.floor(Math.random() * rows);
 		const c = Math.floor(Math.random() * cols);
 
-		if (grid[r][c].isMine || safeZone.has(`${r},${c}`)) continue;
+		if (grid[r][c].isMine || safeZone.has(idx(r, c, cols))) {
+			continue;
+		}
 
 		grid[r][c].isMine = true;
-		minesPlaced++;
+		minesPlaced += 1;
 	}
 
-	// Calculate Numbers
+	// Compute neighbor counts
 	for (let r = 0; r < rows; r++) {
 		for (let c = 0; c < cols; c++) {
-			if (grid[r][c].isMine) continue;
+			const cell = grid[r][c];
+			if (cell.isMine) {
+				continue;
+			}
 
 			let count = 0;
-			DIRECTIONS.forEach(([dr, dc]) => {
-				const nr = r + dr,
-					nc = c + dc;
-				if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc].isMine) {
-					count++;
+			forEachNeighbor(grid, r, c, (nr, nc) => {
+				if (grid[nr][nc].isMine) {
+					count += 1;
 				}
 			});
-			grid[r][c].neighborCount = count;
+
+			cell.neighborCount = count;
 		}
 	}
 }
 
-export function revealCell(
-	grid: Cell[][],
-	r: number,
-	c: number
-): { grid: Cell[][]; gameOver: boolean; win: boolean } {
-	const cell = grid[r][c];
-
-	if (cell.isOpen || cell.isFlagged) return { grid, gameOver: false, win: false };
-
-	if (cell.isMine) {
-		cell.isOpen = true;
-		return { grid, gameOver: true, win: false };
+/**
+ * Reveal a cell. If it is a zero, flood-reveal connected zeros and their borders.
+ * Mutates the grid in place.
+ */
+export function revealCell(grid: Cell[][], r: number, c: number): RevealResult {
+	if (!inBounds(grid, r, c)) {
+		return { grid, gameOver: false };
 	}
 
-	cell.isOpen = true;
+	const start = grid[r][c];
+	if (start.isOpen || start.isFlagged) {
+		return { grid, gameOver: false };
+	}
 
-	if (cell.neighborCount === 0) {
-		DIRECTIONS.forEach(([dr, dc]) => {
-			const nr = r + dr,
-				nc = c + dc;
-			if (nr >= 0 && nr < grid.length && nc >= 0 && nc < grid[0].length) {
-				revealCell(grid, nr, nc);
+	if (start.isMine) {
+		start.isOpen = true;
+		return { grid, gameOver: true };
+	}
+
+	// Iterative flood fill (avoids recursion depth issues)
+	const stack: Array<{ r: number; c: number }> = [{ r, c }];
+
+	while (stack.length > 0) {
+		const cur = stack.pop()!;
+		const cell = grid[cur.r][cur.c];
+
+		if (cell.isOpen || cell.isFlagged) {
+			continue;
+		}
+
+		cell.isOpen = true;
+
+		if (cell.neighborCount !== 0) {
+			continue;
+		}
+
+		forEachNeighbor(grid, cur.r, cur.c, (nr, nc) => {
+			const ncell = grid[nr][nc];
+			if (!ncell.isOpen && !ncell.isFlagged && !ncell.isMine) {
+				stack.push({ r: nr, c: nc });
 			}
 		});
 	}
 
-	return { grid, gameOver: false, win: false };
+	return { grid, gameOver: false };
 }
 
-export function countFlagsAround(grid: Cell[][], r: number, c: number) {
+export function countFlagsAround(grid: Cell[][], r: number, c: number): number {
 	let flagsAround = 0;
-	DIRECTIONS.forEach(([dr, dc]) => {
-		const nr = r + dr,
-			nc = c + dc;
-		if (nr >= 0 && nr < grid.length && nc >= 0 && nc < grid[0].length) {
-			flagsAround += grid[nr][nc].isFlagged ? 1 : 0;
+	forEachNeighbor(grid, r, c, (nr, nc) => {
+		if (grid[nr][nc].isFlagged) {
+			flagsAround += 1;
 		}
 	});
 	return flagsAround;
 }
 
-export function revealCellsAround(
-	grid: Cell[][],
-	r: number,
-	c: number
-): { grid: Cell[][]; gameOver: boolean; win: boolean } {
+export function revealCellsAround(grid: Cell[][], r: number, c: number): RevealResult {
 	let gameOver = false;
-	let win = false;
-	DIRECTIONS.forEach(([dr, dc]) => {
-		const nr = r + dr,
-			nc = c + dc;
-		if (nr >= 0 && nr < grid.length && nc >= 0 && nc < grid[0].length) {
-			if (grid[nr][nc].isFlagged) return;
 
-			const result = revealCell(grid, nr, nc);
-			if (result.gameOver) {
-				gameOver = true;
-			}
-			if (result.win) {
-				win = true;
-			}
-			grid = result.grid;
+	forEachNeighbor(grid, r, c, (nr, nc) => {
+		if (grid[nr][nc].isFlagged) {
+			return;
+		}
+
+		const result = revealCell(grid, nr, nc);
+		if (result.gameOver) {
+			gameOver = true;
 		}
 	});
 
-	return { grid, gameOver, win };
+	return { grid, gameOver };
 }
 
-// src/lib/minesweeper.ts
-
 export function calculate3BV(grid: Cell[][]): number {
-	let bbb = 0;
+	let threeBV = 0;
 	const rows = grid.length;
 	const cols = grid[0].length;
-	const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
+	const visited = Array.from({ length: rows }, () => Array<boolean>(cols).fill(false));
 
-	// 1. Count "Openings" (islands of 0s)
+	// Count openings (zero islands)
 	for (let r = 0; r < rows; r++) {
 		for (let c = 0; c < cols; c++) {
 			const cell = grid[r][c];
-			// If it's a safe, zero-neighbor cell we haven't processed yet
-			if (!cell.isMine && cell.neighborCount === 0 && !visited[r][c]) {
-				bbb++;
-				// Flood fill to mark this entire opening as "1 click"
-				const stack = [{ r, c }];
-				while (stack.length > 0) {
-					const current = stack.pop()!;
-					if (visited[current.r][current.c]) continue;
-					visited[current.r][current.c] = true;
+			if (cell.isMine || cell.neighborCount !== 0 || visited[r][c]) {
+				continue;
+			}
 
-					// If it's a zero, add neighbors to stack
-					if (grid[current.r][current.c].neighborCount === 0) {
-						for (let dr = -1; dr <= 1; dr++) {
-							for (let dc = -1; dc <= 1; dc++) {
-								if (dr === 0 && dc === 0) continue;
-								const nr = current.r + dr;
-								const nc = current.c + dc;
-								if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
-									if (!visited[nr][nc]) stack.push({ r: nr, c: nc });
-								}
-							}
+			threeBV += 1;
+
+			const stack: Array<{ r: number; c: number }> = [{ r, c }];
+			while (stack.length > 0) {
+				const cur = stack.pop()!;
+				if (visited[cur.r][cur.c]) {
+					continue;
+				}
+				visited[cur.r][cur.c] = true;
+
+				if (grid[cur.r][cur.c].neighborCount !== 0) {
+					continue;
+				}
+
+				for (let dr = -1; dr <= 1; dr++) {
+					for (let dc = -1; dc <= 1; dc++) {
+						if (dr === 0 && dc === 0) {
+							continue;
+						}
+
+						const nr = cur.r + dr;
+						const nc = cur.c + dc;
+						if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && !visited[nr][nc]) {
+							stack.push({ r: nr, c: nc });
 						}
 					}
 				}
@@ -189,14 +230,14 @@ export function calculate3BV(grid: Cell[][]): number {
 		}
 	}
 
-	// 2. Count remaining safe cells that weren't part of an opening
+	// Count remaining safe cells not in openings
 	for (let r = 0; r < rows; r++) {
 		for (let c = 0; c < cols; c++) {
 			if (!grid[r][c].isMine && !visited[r][c]) {
-				bbb++;
+				threeBV += 1;
 			}
 		}
 	}
 
-	return bbb;
+	return threeBV;
 }

@@ -3,6 +3,6 @@
 @tailwind utilities;
 
 :root {
-  --bg: 25 25 25;
-  --main: 216 180 254;
+	--bg: 25 25 25;
+	--main: 216 180 254;
 }

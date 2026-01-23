@@ -3,11 +3,7 @@
 export async function GET() {
 	const site = 'https://zsweep.com';
 
-	const pages = [
-		'',        
-		'/about', 
-		'/login' 
-	];
+	const pages = ['', '/about', '/login'];
 
 	const sitemap = `
 		<?xml version="1.0" encoding="UTF-8" ?>

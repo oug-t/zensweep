@@ -1,4 +1,18 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
+	import { base } from '$app/paths';
+	import confetti from 'canvas-confetti';
+	import {
+		Grid3x3,
+		Wrench,
+		User,
+		LogOut,
+		Hourglass,
+		Infinity as InfinityIcon,
+		Palette,
+		Info,
+		Bomb
+	} from 'lucide-svelte';
 	import {
 		createGrid,
 		placeMines,
@@ -9,268 +23,220 @@
 		revealCellsAround,
 		countFlagsAround
 	} from '$lib/minesweeper';
-	import { onMount } from 'svelte';
-	import confetti from 'canvas-confetti';
-	import {
-		Flag,
-		Bomb,
-		Grid3x3,
-		Wrench,
-		Flame,
-		Flower2,
-		User,
-		LogOut,
-		Hourglass,
-		Infinity as InfinityIcon,
-		Palette,
-		Search,
-		ChevronRight,
-		Info,
-		X
-	} from 'lucide-svelte';
-	import ResultView from '$lib/components/ResultView.svelte';
+
 	import { supabase } from '$lib/supabase';
-	import { THEMES } from '$lib/themes';
 	import { currentTheme } from '$lib/themeStore';
-	import { base } from '$app/paths';
-	import { handleVimKey } from '$lib/game/input/vim';
+	import { handleVimKey, calculateVimJump } from '$lib/game/input/vim';
 
-	// --- PROPS ---
-	export let data;
+	import GameGrid from '$lib/components/GameGrid.svelte';
+	import ResultView from '$lib/components/ResultView.svelte';
+	import CommandPalette from '$lib/components/CommandPalette.svelte';
+	import CustomSettingsModal from '$lib/components/CustomSettingsModal.svelte';
 
-	// --- CONFIG ---
-	const GRID_SIZES = [
-		{ label: '9x9', rows: 9, cols: 9, mines: 10 },
-		{ label: '16x16', rows: 16, cols: 16, mines: 40 },
-		{ label: '30x16', rows: 16, cols: 30, mines: 99 }
-	];
-	const TIME_LIMITS = [15, 30, 60];
+	import type { PageData } from './$types';
+	export let data: PageData;
 
-	// --- STATE ---
-	let gameMode: 'time' | 'standard' = 'standard';
-	let currentSize = GRID_SIZES[0];
-	let timeLimit = 15;
-
-	// Custom Settings State
-	let showCustomModal = false;
-	let customConfig = {
-		rows: 20,
-		cols: 20,
-		mines: 40,
-		time: 120
+	const GAME_CONFIG = {
+		gridSizes: [
+			{ label: '9x9', rows: 9, cols: 9, mines: 10 },
+			{ label: '16x16', rows: 16, cols: 16, mines: 40 },
+			{ label: '30x16', rows: 16, cols: 30, mines: 99 }
+		],
+		timeLimits: [15, 30, 60]
 	};
 
-	let cursor = { r: 0, c: 0 };
-	let vimBuffer = '';
-	let lastKey = '';
-	let lastKeyTime = 0;
+	let game = {
+		mode: 'standard' as 'time' | 'standard',
+		size: GAME_CONFIG.gridSizes[0],
+		timeLimit: 15,
+		state: 'pending' as 'pending' | 'playing' | 'finished',
+		grid: [] as Cell[][],
+		minesLeft: 0,
+		timer: 0,
+		timerInterval: undefined as ReturnType<typeof setInterval> | undefined,
+		isFirstClick: true
+	};
 
-	let isSearchMode = false;
-	let searchTerm = '';
-	let searchMatches: { r: number; c: number }[] = [];
-	let matchIndex = -1;
+	let input = {
+		cursor: { r: 0, c: 0 },
+		buffer: '',
+		lastKey: '',
+		lastKeyTime: 0,
+		isMouseDown: false
+	};
 
-	let showPalette = false;
-	let paletteView: 'root' | 'themes' = 'root';
-	let searchQuery = '';
-	let searchInputEl: HTMLInputElement;
+	let search = {
+		active: false,
+		term: '',
+		matches: [] as { r: number; c: number }[],
+		matchIndex: -1
+	};
 
-	let grid: Cell[][] = [];
-	let gameState: 'pending' | 'playing' | 'finished' = 'pending';
-	let isFirstClick = true;
-	let timer = 0;
-	let timerInterval: ReturnType<typeof setInterval> | undefined;
+	let ui = {
+		showPalette: false,
+		showCustomModal: false
+	};
 
-	let minesLeft = 0;
-	let totalClicks = 0;
-	let clickHistory: number[] = [];
-	let clicksThisSecond = 0;
+	let stats = {
+		clicks: 0,
+		clicksThisSecond: 0,
+		history: [] as number[],
+		session3BV: 0,
+		currentGrid3BV: 0,
+		isWin: false,
+		gridsSolved: 0,
+		gridsPlayed: 0,
+		cellsRevealed: 0,
+		sessionTotalMines: 0,
+		sessionErrors: 0,
+		finalAccuracy: 0
+	};
 
-	// Stats
-	let session3BV = 0;
-	let currentGrid3BV = 0;
-	let isWin = false;
-	let gridsSolved = 0;
-	let gridsPlayed = 0;
-	let totalCellsRevealed = 0;
-	let sessionTotalMines = 0;
-	let sessionErrors = 0;
-	let finalAccuracy = 0;
-
-	let isMouseDown = false;
 	let currentUser: string | null = null;
 
-	// --- REACTIVE DECLARATIONS ---
-	$: filteredThemes = THEMES.filter((t) =>
-		t.label.toLowerCase().includes(searchQuery.toLowerCase())
-	);
-
-	const COMMANDS = [
-		{
-			id: 'theme',
-			label: 'Theme...',
-			icon: Palette,
-			action: () => {
-				paletteView = 'themes';
-				searchQuery = '';
-				searchInputEl?.focus();
-			}
-		}
-	];
-
-	$: filteredCommands = COMMANDS.filter((c) =>
-		c.label.toLowerCase().includes(searchQuery.toLowerCase())
-	);
-
-	// --- CORE FUNCTIONS ---
 	function openPalette() {
-		showPalette = true;
-		paletteView = 'root';
-		searchQuery = '';
-		setTimeout(() => searchInputEl?.focus(), 50);
+		ui.showPalette = true;
 	}
 
 	function openCustomModal() {
-		if (gameMode === 'standard') {
-			customConfig.rows = currentSize.rows;
-			customConfig.cols = currentSize.cols;
-			customConfig.mines = currentSize.mines;
-		} else {
-			customConfig.time = timeLimit;
-		}
-		showCustomModal = true;
+		ui.showCustomModal = true;
 	}
 
-	function applyCustomSettings() {
-		if (gameMode === 'standard') {
-			const r = Math.max(5, Math.min(50, customConfig.rows));
-			const c = Math.max(5, Math.min(50, customConfig.cols));
+	function applyCustomSettings(event: CustomEvent) {
+		const config = event.detail;
+
+		if (game.mode === 'standard') {
+			const r = Math.max(5, Math.min(50, config.rows));
+			const c = Math.max(5, Math.min(50, config.cols));
 			// Max mines is 85% of grid
 			const maxMines = Math.floor(r * c * 0.85);
-			const m = Math.max(1, Math.min(maxMines, customConfig.mines));
+			const m = Math.max(1, Math.min(maxMines, config.mines));
 
-			currentSize = { label: 'Custom', rows: r, cols: c, mines: m };
+			game.size = { label: 'Custom', rows: r, cols: c, mines: m };
 		} else {
-			const t = Math.max(10, Math.min(999, customConfig.time));
+			const t = Math.max(10, Math.min(999, config.time));
 			setTime(t);
 		}
-		showCustomModal = false;
+		ui.showCustomModal = false;
 		fullReset();
 	}
 
 	function setMode(mode: 'time' | 'standard') {
-		gameMode = mode;
-		if (gameMode === 'time' && currentSize.label !== '9x9') {
-			currentSize = GRID_SIZES[0];
+		game.mode = mode;
+		if (game.mode === 'time' && game.size.label !== '9x9') {
+			game.size = GAME_CONFIG.gridSizes[0];
 		}
 		fullReset();
 	}
 
 	function setTime(seconds: number) {
-		timeLimit = seconds;
+		game.timeLimit = seconds;
 		fullReset();
 	}
 
-	function setSize(size: (typeof GRID_SIZES)[0]) {
-		currentSize = size;
-		if (currentSize.label !== '9x9' && gameMode === 'time') {
-			gameMode = 'standard';
+	function setSize(size: (typeof GAME_CONFIG.gridSizes)[0]) {
+		game.size = size;
+		if (game.size.label !== '9x9' && game.mode === 'time') {
+			game.mode = 'standard';
 		}
 		fullReset();
 	}
 
 	function fullReset() {
-		gameState = 'pending';
-		gridsSolved = 0;
-		gridsPlayed = 0;
-		totalCellsRevealed = 0;
-		totalClicks = 0;
-		sessionTotalMines = 0;
-		sessionErrors = 0;
-		finalAccuracy = 0;
-		isWin = false;
-		session3BV = 0;
-		clickHistory = [];
-		clicksThisSecond = 0;
-		timer = gameMode === 'time' ? timeLimit : 0;
-		if (timerInterval) clearInterval(timerInterval);
+		game.state = 'pending';
+		stats.gridsSolved = 0;
+		stats.gridsPlayed = 0;
+		stats.cellsRevealed = 0;
+		stats.clicks = 0;
+		stats.sessionTotalMines = 0;
+		stats.sessionErrors = 0;
+		stats.finalAccuracy = 0;
+		stats.isWin = false;
+		stats.session3BV = 0;
+		stats.history = [];
+		stats.clicksThisSecond = 0;
+
+		game.timer = game.mode === 'time' ? game.timeLimit : 0;
+		if (game.timerInterval) clearInterval(game.timerInterval);
+
 		resetBoard();
 	}
 
 	function resetBoard() {
-		isFirstClick = true;
-		grid = createGrid(currentSize.rows, currentSize.cols);
-		minesLeft = currentSize.mines;
-		cursor = {
-			r: Math.floor(currentSize.rows / 2),
-			c: Math.floor(currentSize.cols / 2)
+		game.isFirstClick = true;
+		game.grid = createGrid(game.size.rows, game.size.cols);
+		game.minesLeft = game.size.mines;
+		input.cursor = {
+			r: Math.floor(game.size.rows / 2),
+			c: Math.floor(game.size.cols / 2)
 		};
 	}
 
 	function startSession() {
-		if (gameState === 'playing') return;
-		gameState = 'playing';
-		timerInterval = setInterval(() => {
-			if (gameMode === 'time') timer--;
-			else timer++;
-			clickHistory.push(clicksThisSecond);
-			clickHistory = clickHistory;
-			clicksThisSecond = 0;
-			if (gameMode === 'time' && timer <= 0) finishSession(true);
+		if (game.state === 'playing') return;
+		game.state = 'playing';
+		game.timerInterval = setInterval(() => {
+			if (game.mode === 'time') game.timer--;
+			else game.timer++;
+
+			stats.history = [...stats.history, stats.clicksThisSecond];
+			stats.clicksThisSecond = 0;
+
+			if (game.mode === 'time' && game.timer <= 0) finishSession(true);
 		}, 1000);
 	}
 
 	function finishSession(win: boolean) {
-		gameState = 'finished';
-		isWin = win;
-		if (timerInterval) clearInterval(timerInterval);
-		if (clicksThisSecond > 0) clickHistory.push(clicksThisSecond);
+		game.state = 'finished';
+		stats.isWin = win;
+		if (game.timerInterval) clearInterval(game.timerInterval);
+		if (stats.clicksThisSecond > 0) {
+			stats.history = [...stats.history, stats.clicksThisSecond];
+		}
 
-		if (gameMode === 'standard') {
-			gridsPlayed = 1;
-			sessionTotalMines = currentSize.mines;
-			totalCellsRevealed = win
-				? currentSize.rows * currentSize.cols - currentSize.mines
+		if (game.mode === 'standard') {
+			stats.gridsPlayed = 1;
+			stats.sessionTotalMines = game.size.mines;
+			stats.cellsRevealed = win
+				? game.size.rows * game.size.cols - game.size.mines
 				: countCurrentSafeOpen();
 		} else {
 			if (win) {
-				totalCellsRevealed += countCurrentSafeOpen();
-				sessionTotalMines += currentSize.mines;
-				gridsPlayed++;
+				stats.cellsRevealed += countCurrentSafeOpen();
+				stats.sessionTotalMines += game.size.mines;
+				stats.gridsPlayed++;
 			}
 		}
-		if (!win) sessionErrors += countWrongFlags();
-		finalAccuracy = calculateAccuracy();
-		grid = [...grid];
+
+		if (!win) stats.sessionErrors += countWrongFlags();
+		stats.finalAccuracy = calculateAccuracy();
+		game.grid = [...game.grid];
 		if (win) triggerWin();
 		saveResult(win);
 	}
 
 	function handleClick(r: number, c: number) {
-		if (gameState === 'finished' || grid[r][c].isFlagged) return;
-		totalClicks++;
-		clicksThisSecond++;
-		if (isFirstClick) {
-			isFirstClick = false;
-			if (gameState === 'pending') startSession();
-			placeMines(grid, currentSize.mines, { r, c });
-			currentGrid3BV = calculate3BV(grid);
-			if (gameMode === 'standard') session3BV = currentGrid3BV;
+		if (game.state === 'finished' || game.grid[r][c].isFlagged) return;
+		stats.clicks++;
+		stats.clicksThisSecond++;
+
+		if (game.isFirstClick) {
+			game.isFirstClick = false;
+			if (game.state === 'pending') startSession();
+			placeMines(game.grid, game.size.mines, { r, c });
+			stats.currentGrid3BV = calculate3BV(game.grid);
+			if (game.mode === 'standard') stats.session3BV = stats.currentGrid3BV;
 		}
 
-		let result;
-		// Chording Logic: if open and flags match neighbors, reveal around
-		if (grid[r][c].isOpen && countFlagsAround(grid, r, c) === grid[r][c].neighborCount) {
-			result = revealCellsAround(grid, r, c);
-		} else {
-			result = revealCell(grid, r, c);
-		}
+		const canChord =
+			game.grid[r][c].isOpen && countFlagsAround(game.grid, r, c) === game.grid[r][c].neighborCount;
 
-		grid = result.grid;
+		const result = canChord ? revealCellsAround(game.grid, r, c) : revealCell(game.grid, r, c);
+
+		game.grid = result.grid;
 		if (result.gameOver) {
 			triggerExplosion();
-			sessionErrors++;
-			sessionErrors += countWrongFlags();
+			stats.sessionErrors += 1 + countWrongFlags();
 			finishSession(false);
 		} else {
 			checkWin();
@@ -278,55 +244,54 @@
 	}
 
 	function toggleFlag(r: number, c: number) {
-		if (gameState === 'finished' || grid[r][c].isOpen) return;
-		grid[r][c].isFlagged = !grid[r][c].isFlagged;
-		minesLeft += grid[r][c].isFlagged ? -1 : 1;
-		totalClicks++;
-		clicksThisSecond++;
-		grid = grid;
+		if (game.state === 'finished' || game.grid[r][c].isOpen) return;
+		game.grid[r][c].isFlagged = !game.grid[r][c].isFlagged;
+		game.minesLeft += game.grid[r][c].isFlagged ? -1 : 1;
+		stats.clicks++;
+		stats.clicksThisSecond++;
+		game.grid = game.grid;
 	}
 
 	function attemptChord(r: number, c: number) {
-		const cell = grid[r][c];
+		const cell = game.grid[r][c];
 		let flagCount = 0;
 		DIRECTIONS.forEach(([dr, dc]) => {
-			if (grid[r + dr]?.[c + dc]?.isFlagged) flagCount++;
+			if (game.grid[r + dr]?.[c + dc]?.isFlagged) flagCount++;
 		});
 		if (flagCount === cell.neighborCount) {
-			totalClicks++;
-			clicksThisSecond++;
+			stats.clicks++;
+			stats.clicksThisSecond++;
 			DIRECTIONS.forEach(([dr, dc]) => {
 				const nr = r + dr,
 					nc = c + dc;
-				if (grid[nr]?.[nc] && !grid[nr][nc].isOpen && !grid[nr][nc].isFlagged) handleClick(nr, nc);
+				if (game.grid[nr]?.[nc] && !game.grid[nr][nc].isOpen && !game.grid[nr][nc].isFlagged) {
+					handleClick(nr, nc);
+				}
 			});
 		}
 	}
 
 	function handleInput(e: KeyboardEvent) {
-		if (showPalette || showCustomModal) {
+		if (ui.showPalette || ui.showCustomModal) {
 			if (e.key === 'Escape') {
-				if (showPalette) {
-					if (paletteView === 'themes') {
-						paletteView = 'root';
-						searchQuery = '';
-					} else showPalette = false;
-				}
-				if (showCustomModal) showCustomModal = false;
+				if (ui.showCustomModal) ui.showCustomModal = false;
 			}
 			return;
 		}
 
-		if (isSearchMode) {
+		if (search.active) {
 			e.preventDefault();
 			if (e.key === 'Escape') {
-				isSearchMode = false;
-				searchTerm = '';
+				search.active = false;
+				search.term = '';
 			} else if (e.key === 'Enter') {
 				executeSearch();
-				isSearchMode = false;
-			} else if (e.key === 'Backspace') searchTerm = searchTerm.slice(0, -1);
-			else if (/^[0-8]$/.test(e.key)) searchTerm = e.key;
+				search.active = false;
+			} else if (e.key === 'Backspace') {
+				search.term = search.term.slice(0, -1);
+			} else if (/^[0-8]$/.test(e.key)) {
+				search.term = e.key;
+			}
 			return;
 		}
 
@@ -341,217 +306,138 @@
 		}
 		if (e.key === 'Escape') {
 			e.preventDefault();
-			if (vimBuffer.length > 0) vimBuffer = '';
-			else if (gameState === 'playing') finishSession(true);
+			if (input.buffer.length > 0) input.buffer = '';
+			else if (game.state === 'playing') finishSession(true);
 			else openPalette();
 			return;
 		}
 
 		const now = Date.now();
-		if (e.key === 'g' && lastKey === 'g' && now - lastKeyTime < 500) {
-			cursor = { r: 0, c: cursor.c };
-			lastKey = '';
-			vimBuffer = '';
+		if (e.key === 'g' && input.lastKey === 'g' && now - input.lastKeyTime < 500) {
+			input.cursor = { r: 0, c: input.cursor.c };
+			input.lastKey = '';
+			input.buffer = '';
 			return;
 		}
 		if (e.key === 'g') {
-			lastKey = 'g';
-			lastKeyTime = now;
+			input.lastKey = 'g';
+			input.lastKeyTime = now;
 			return;
 		}
 
-		const mult = vimBuffer.length > 0 ? parseInt(vimBuffer) : 1;
+		const mult = input.buffer.length > 0 ? parseInt(input.buffer) : 1;
 
-		if (e.key === 'w') {
-			let jumps = mult;
-			let { r, c } = cursor;
-			while (jumps > 0) {
-				c++;
-				if (c >= currentSize.cols) {
-					c = 0;
-					r++;
-				}
-				let loops = 0;
-				const maxLoops = currentSize.rows * currentSize.cols;
-				while (r < currentSize.rows && loops < maxLoops) {
-					if (grid[r] && grid[r][c] && !grid[r][c].isOpen) break;
-					c++;
-					if (c >= currentSize.cols) {
-						c = 0;
-						r++;
-					}
-					loops++;
-				}
-				jumps--;
-			}
-			if (r < currentSize.rows) cursor = { r, c };
-			vimBuffer = '';
+		const jumpDest = calculateVimJump(
+			e.key,
+			mult,
+			input.cursor,
+			game.grid,
+			game.size.rows,
+			game.size.cols
+		);
+
+		if (jumpDest) {
+			input.cursor = jumpDest;
+			input.buffer = '';
 			return;
-		}
-
-		if (e.key === 'b') {
-			let jumps = mult;
-			let { r, c } = cursor;
-			while (jumps > 0) {
-				c--;
-				if (c < 0) {
-					c = currentSize.cols - 1;
-					r--;
-				}
-				let loops = 0;
-				const maxLoops = currentSize.rows * currentSize.cols;
-				while (r >= 0 && loops < maxLoops) {
-					if (grid[r] && grid[r][c] && !grid[r][c].isOpen) break;
-					c--;
-					if (c < 0) {
-						c = currentSize.cols - 1;
-						r--;
-					}
-					loops++;
-				}
-				jumps--;
-			}
-			if (r >= 0) cursor = { r, c };
-			vimBuffer = '';
-			return;
-		}
-
-		// '}' -> Jump DOWN to next row, then scan Left->Right
-		if (e.key === '}') {
-			let jumps = mult;
-			let { r, c } = cursor;
-
-			while (jumps > 0) {
-				if (r >= currentSize.rows - 1) break; // Stop at bottom boundary
-				r++; // Move down
-				
-				// Scan forward from start of this row (and subsequent rows if empty)
-				let found = false;
-				while (r < currentSize.rows) {
-					for (let i = 0; i < currentSize.cols; i++) {
-						if (grid[r] && grid[r][i] && !grid[r][i].isOpen) {
-							c = i;
-							found = true;
-							break;
-						}
-					}
-					if (found) break;
-					r++; // If row is fully revealed, check the next one
-				}
-				jumps--;
-			}
-			if (r < currentSize.rows) cursor = { r, c };
-		}
-
-		// For '{'
-		if (e.key === '{') {
-			let jumps = mult;
-			let { r, c } = cursor;
-
-			while (jumps > 0) {
-				if (r <= 0) break; 
-				r--; // Move up
-				
-				let found = false;
-				while (r >= 0) {
-					for (let i = currentSize.cols - 1; i >= 0; i--) {
-						if (grid[r] && grid[r][i] && !grid[r][i].isOpen) {
-							c = i;
-							found = true;
-							break;
-						}
-					}
-					if (found) break;
-					r--; 
-				}
-				jumps--;
-			}
-			if (r >= 0) cursor = { r, c };
 		}
 
 		const action = handleVimKey(e.key);
 		if (action) {
 			e.preventDefault();
+
 			if (action.type === 'START_SEARCH') {
-				isSearchMode = true;
-				searchTerm = '';
+				search.active = true;
+				search.term = '';
 				return;
 			}
 
-			if (action.type === 'NEXT_MATCH' && searchMatches.length > 0) {
-				matchIndex = (matchIndex + 1) % searchMatches.length;
-				cursor = searchMatches[matchIndex];
+			if (action.type === 'NEXT_MATCH' && search.matches.length > 0) {
+				search.matchIndex = (search.matchIndex + 1) % search.matches.length;
+				input.cursor = search.matches[search.matchIndex];
 				return;
 			}
-			if (action.type === 'PREV_MATCH' && searchMatches.length > 0) {
-				matchIndex = (matchIndex - 1 + searchMatches.length) % searchMatches.length;
-				cursor = searchMatches[matchIndex];
+			if (action.type === 'PREV_MATCH' && search.matches.length > 0) {
+				search.matchIndex = (search.matchIndex - 1 + search.matches.length) % search.matches.length;
+				input.cursor = search.matches[search.matchIndex];
 				return;
 			}
 
 			if (action.type === 'DIGIT') {
-				vimBuffer += action.value;
+				input.buffer += action.value;
 				return;
 			}
 			if (action.type === 'ZERO') {
-				if (vimBuffer.length > 0) vimBuffer += '0';
-				else cursor = { r: cursor.r, c: 0 };
+				if (input.buffer.length > 0) input.buffer += '0';
+				else input.cursor = { r: input.cursor.r, c: 0 };
 				return;
 			}
 
 			if (action.type === 'START_ROW') {
-				cursor = { r: cursor.r, c: 0 };
-				vimBuffer = '';
+				input.cursor = { r: input.cursor.r, c: 0 };
+				input.buffer = '';
+				return;
+			}
+			if (action.type === 'GO_TOP') {
+				input.cursor = { r: 0, c: input.cursor.c };
+				input.buffer = '';
 				return;
 			}
 			if (action.type === 'GO_BOTTOM') {
-				cursor = { r: currentSize.rows - 1, c: cursor.c };
-				vimBuffer = '';
+				input.cursor = { r: game.size.rows - 1, c: input.cursor.c };
+				input.buffer = '';
 				return;
 			}
 
 			if (action.type === 'MOVE_CURSOR') {
-				cursor.r = Math.max(0, Math.min(currentSize.rows - 1, cursor.r + action.dy * mult));
-				cursor.c = Math.max(0, Math.min(currentSize.cols - 1, cursor.c + action.dx * mult));
-				vimBuffer = '';
+				input.cursor.r = Math.max(
+					0,
+					Math.min(game.size.rows - 1, input.cursor.r + action.dy * mult)
+				);
+				input.cursor.c = Math.max(
+					0,
+					Math.min(game.size.cols - 1, input.cursor.c + action.dx * mult)
+				);
+				input.buffer = '';
 			} else if (action.type === 'FLAG') {
-				toggleFlag(cursor.r, cursor.c);
-				vimBuffer = '';
+				toggleFlag(input.cursor.r, input.cursor.c);
+				input.buffer = '';
 			} else if (action.type === 'REVEAL') {
-				handleClick(cursor.r, cursor.c);
-				vimBuffer = '';
+				handleClick(input.cursor.r, input.cursor.c);
+				input.buffer = '';
 			} else if (action.type === 'SMART') {
-				if (!grid[cursor.r][cursor.c].isOpen) toggleFlag(cursor.r, cursor.c);
-				else attemptChord(cursor.r, cursor.c);
-				vimBuffer = '';
+				if (!game.grid[input.cursor.r][input.cursor.c].isOpen)
+					toggleFlag(input.cursor.r, input.cursor.c);
+				else attemptChord(input.cursor.r, input.cursor.c);
+				input.buffer = '';
 			}
 		}
 	}
 
 	function executeSearch() {
-		if (!searchTerm) return;
-		const target = parseInt(searchTerm);
-		searchMatches = [];
-		for (let r = 0; r < currentSize.rows; r++) {
-			for (let c = 0; c < currentSize.cols; c++) {
-				const cell = grid[r][c];
+		if (!search.term) return;
+		const target = parseInt(search.term);
+		search.matches = [];
+		for (let r = 0; r < game.size.rows; r++) {
+			for (let c = 0; c < game.size.cols; c++) {
+				const cell = game.grid[r][c];
 				if (target === 0 ? !cell.isOpen : cell.isOpen && cell.neighborCount === target) {
-					searchMatches.push({ r, c });
+					search.matches.push({ r, c });
 				}
 			}
 		}
-		if (searchMatches.length > 0) {
-			matchIndex = searchMatches.findIndex(
-				(m) => m.r > cursor.r || (m.r === cursor.r && m.c >= cursor.c)
+		if (search.matches.length > 0) {
+			search.matchIndex = search.matches.findIndex(
+				(m) => m.r > input.cursor.r || (m.r === input.cursor.r && m.c >= input.cursor.c)
 			);
-			if (matchIndex === -1) matchIndex = 0;
-			cursor = searchMatches[matchIndex];
+			if (search.matchIndex === -1) search.matchIndex = 0;
+			input.cursor = search.matches[search.matchIndex];
 		}
 	}
 
 	function countCurrentSafeOpen() {
 		let count = 0;
-		grid.forEach((row) =>
+		game.grid.forEach((row) =>
 			row.forEach((c) => {
 				if (c.isOpen && !c.isMine) count++;
 			})
@@ -561,7 +447,7 @@
 
 	function countWrongFlags() {
 		let wrong = 0;
-		grid.forEach((row) =>
+		game.grid.forEach((row) =>
 			row.forEach((c) => {
 				if (c.isFlagged && !c.isMine) wrong++;
 			})
@@ -570,24 +456,27 @@
 	}
 
 	function calculateAccuracy() {
-		if (sessionTotalMines === 0) return 0;
-		return Math.max(0, Math.round(((sessionTotalMines - sessionErrors) / sessionTotalMines) * 100));
+		if (stats.sessionTotalMines === 0) return 0;
+		return Math.max(
+			0,
+			Math.round(((stats.sessionTotalMines - stats.sessionErrors) / stats.sessionTotalMines) * 100)
+		);
 	}
 
 	function checkWin() {
 		let safeOpen = countCurrentSafeOpen();
-		const totalSafe = currentSize.rows * currentSize.cols - currentSize.mines;
+		const totalSafe = game.size.rows * game.size.cols - game.size.mines;
 		if (safeOpen === totalSafe) {
-			if (gameMode === 'time') {
-				gridsSolved++;
-				gridsPlayed++;
-				session3BV += currentGrid3BV;
-				totalCellsRevealed += totalSafe;
-				sessionTotalMines += currentSize.mines;
-				sessionErrors += countWrongFlags();
+			if (game.mode === 'time') {
+				stats.gridsSolved++;
+				stats.gridsPlayed++;
+				stats.session3BV += stats.currentGrid3BV;
+				stats.cellsRevealed += totalSafe;
+				stats.sessionTotalMines += game.size.mines;
+				stats.sessionErrors += countWrongFlags();
 				resetBoard();
 			} else {
-				gridsSolved = 1;
+				stats.gridsSolved = 1;
 				finishSession(true);
 			}
 		}
@@ -615,45 +504,46 @@
 		const {
 			data: { session }
 		} = await supabase.auth.getSession();
-		let timeTaken = gameMode === 'standard' ? timer : Math.max(0, timeLimit - timer);
+		let timeTaken =
+			game.mode === 'standard' ? game.timer : Math.max(0, game.timeLimit - game.timer);
 		const { error } = await supabase.from('game_results').insert({
 			user_id: session?.user?.id || null,
-			mode: gameMode,
-			setting: gameMode === 'time' ? timeLimit.toString() : currentSize.label,
+			mode: game.mode,
+			setting: game.mode === 'time' ? game.timeLimit.toString() : game.size.label,
 			win,
 			time: timeTaken,
-			grids: gameMode === 'standard' ? (win ? 1 : 0) : gridsSolved,
+			grids: game.mode === 'standard' ? (win ? 1 : 0) : stats.gridsSolved,
 			total_mines: win
-				? gameMode === 'standard'
-					? currentSize.mines
-					: gridsSolved * currentSize.mines
+				? game.mode === 'standard'
+					? game.size.mines
+					: stats.gridsSolved * game.size.mines
 				: 0,
-			accuracy: finalAccuracy
+			accuracy: stats.finalAccuracy
 		});
 		if (error) console.error('Error saving result:', error);
 	}
 
-    export const load: PageServerLoad = async ({ locals: { supabase } }) => {
-        const { data: totalSeconds, error } = await supabase
-            .rpc('get_total_sweeping_time');
+	export const load: PageServerLoad = async ({ locals: { supabase } }) => {
+		const { data: totalSeconds, error } = await supabase.rpc('get_total_sweeping_time');
 
-        if (error) {
-            console.error('Error fetching global stats:', error);
-        }
+		if (error) {
+			console.error('Error fetching global stats:', error);
+		}
 
-        return {
-            stats: {
-            seconds: totalSeconds || 0
-        }
-    };
-};
+		return {
+			stats: {
+				seconds: totalSeconds || 0
+			}
+		};
+	};
 
 	onMount(async () => {
 		const {
 			data: { session }
 		} = await supabase.auth.getSession();
-		if (session?.user)
+		if (session?.user) {
 			currentUser = session.user.user_metadata.full_name || session.user.email?.split('@')[0];
+		}
 		fullReset();
 	});
 
@@ -666,9 +556,45 @@
 
 <svelte:head>
 	<title>Zsweep</title>
+	<meta name="theme-color" content="#323437" />
+	<meta
+		name="description"
+		content="Play Zsweep, a fast-paced, keyboard-centric Minesweeper game inspired by Monkeytype. Track stats, use Vim motions, and enjoy a distraction-free experience."
+	/>
+	<meta property="og:type" content="website" />
+	<meta property="og:url" content="https://zsweep.com/" />
+	<meta property="og:title" content="Zsweep | Modern Minesweeper" />
+	<meta
+		property="og:description"
+		content="A fast, keyboard-centric Minesweeper game inspired by Monkeytype."
+	/>
+	<meta property="og:image" content="https://zsweep.com/og-image.png" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content="Zsweep" />
+	<meta name="twitter:description" content="Minimalist Minesweeper. No ads. Just speed." />
+	<meta name="twitter:image" content="https://zsweep.com/og-image.png" />
+
+	<script type="application/ld+json">
+		{
+			"@context": "https://schema.org",
+			"@type": "VideoGame",
+			"name": "Zsweep",
+			"url": "https://zsweep.com",
+			"description": "A modern, minimalist minesweeper game inspired by Monkeytype.",
+			"genre": "Puzzle",
+			"playMode": "SinglePlayer",
+			"applicationCategory": "Game",
+			"operatingSystem": "Web Browser",
+			"offers": {
+				"@type": "Offer",
+				"price": "0",
+				"priceCurrency": "USD"
+			}
+		}
+	</script>
 </svelte:head>
 
-<svelte:window on:keydown={handleInput} on:mouseup={() => (isMouseDown = false)} />
+<svelte:window on:keydown={handleInput} on:mouseup={() => (input.isMouseDown = false)} />
 
 <div
 	class="relative flex min-h-screen flex-col items-center bg-bg font-mono text-text transition-colors duration-300"
@@ -679,25 +605,25 @@
 		<div class="flex items-center gap-4 transition-all duration-300">
 			<a
 				href="{base}/"
-				class="group flex select-none items-center gap-3 transition-all {gameState === 'playing'
+				class="group flex select-none items-center gap-3 transition-all {game.state === 'playing'
 					? 'pointer-events-none opacity-50 grayscale'
 					: 'hover:opacity-80'}"
 			>
 				<Bomb
 					size={28}
 					strokeWidth={2.5}
-					class="transition-transform duration-300 group-hover:scale-110 {gameState === 'playing'
+					class="transition-transform duration-300 group-hover:scale-110 {game.state === 'playing'
 						? 'text-sub'
 						: 'text-main'}"
 				/>
 				<h1 class="font-mono text-3xl font-black leading-none tracking-tighter text-text">
-					z<span class={gameState === 'playing' ? 'text-text' : 'text-main'}>sweep</span>
+					z<span class={game.state === 'playing' ? 'text-text' : 'text-main'}>sweep</span>
 				</h1>
 			</a>
 
 			<a
 				href="{base}/about"
-				class="text-sub transition-all duration-300 hover:text-text {gameState === 'playing'
+				class="text-sub transition-all duration-300 hover:text-text {game.state === 'playing'
 					? 'pointer-events-none opacity-0'
 					: 'opacity-100'}"
 				title="About"
@@ -707,7 +633,7 @@
 		</div>
 
 		<div
-			class="flex items-center gap-6 text-sm transition-opacity duration-300 {gameState ===
+			class="flex items-center gap-6 text-sm transition-opacity duration-300 {game.state ===
 			'playing'
 				? 'pointer-events-none opacity-0'
 				: 'opacity-100'}"
@@ -753,32 +679,32 @@
 		</div>
 	</div>
 
-	{#if gameState === 'finished'}
+	{#if game.state === 'finished'}
 		<ResultView
-			win={isWin}
-			time={gameMode === 'time' ? timeLimit - timer : timer}
-			cells={totalCellsRevealed}
-			{totalClicks}
-			history={clickHistory}
-			accuracy={finalAccuracy}
-			sizeLabel={currentSize.label}
-			{gridsSolved}
-			{gridsPlayed}
-			mode={gameMode}
-			total3BV={session3BV}
+			win={stats.isWin}
+			time={game.mode === 'time' ? game.timeLimit - game.timer : game.timer}
+			cells={stats.cellsRevealed}
+			totalClicks={stats.clicks}
+			history={stats.history}
+			accuracy={stats.finalAccuracy}
+			sizeLabel={game.size.label}
+			gridsSolved={stats.gridsSolved}
+			gridsPlayed={stats.gridsPlayed}
+			mode={game.mode}
+			total3BV={stats.session3BV}
 			totalGlobalSeconds={data?.stats?.seconds || 0}
 			on:restart={fullReset}
 		/>
 	{:else}
 		<div
-			class="mb-8 flex select-none items-center gap-6 rounded-lg bg-sub/10 px-4 py-2 text-xs transition-all duration-300 {gameState ===
+			class="mb-8 flex select-none items-center gap-6 rounded-lg bg-sub/10 px-4 py-2 text-xs transition-all duration-300 {game.state ===
 			'playing'
 				? 'pointer-events-none opacity-0'
 				: 'opacity-100'}"
 		>
 			<div class="flex items-center gap-3">
 				<button
-					class="flex items-center gap-2 transition-colors {gameMode === 'standard'
+					class="flex items-center gap-2 transition-colors {game.mode === 'standard'
 						? 'font-bold text-main'
 						: 'text-sub hover:text-text'}"
 					on:click={() => setMode('standard')}
@@ -786,7 +712,7 @@
 					<InfinityIcon size={12} /><span>standard</span>
 				</button>
 				<button
-					class="flex items-center gap-2 transition-colors {gameMode === 'time'
+					class="flex items-center gap-2 transition-colors {game.mode === 'time'
 						? 'font-bold text-main'
 						: 'text-sub hover:text-text'}"
 					on:click={() => setMode('time')}
@@ -798,11 +724,11 @@
 			<div class="h-3 w-[1px] bg-sub/20"></div>
 
 			<div class="flex items-center gap-3">
-				{#if gameMode === 'standard'}
+				{#if game.mode === 'standard'}
 					<Grid3x3 size={12} class="text-sub opacity-50" />
-					{#each GRID_SIZES as size}
+					{#each GAME_CONFIG.gridSizes as size}
 						<button
-							class={currentSize.label === size.label
+							class={game.size.label === size.label
 								? 'font-bold text-main'
 								: 'text-sub hover:text-text'}
 							on:click={() => setSize(size)}>{size.label}</button
@@ -810,9 +736,9 @@
 					{/each}
 				{:else}
 					<Hourglass size={12} class="text-sub opacity-50" />
-					{#each TIME_LIMITS as t}
+					{#each GAME_CONFIG.timeLimits as t}
 						<button
-							class={timeLimit === t ? 'font-bold text-main' : 'text-sub hover:text-text'}
+							class={game.timeLimit === t ? 'font-bold text-main' : 'text-sub hover:text-text'}
 							on:click={() => setTime(t)}>{t}s</button
 						>
 					{/each}
@@ -842,197 +768,42 @@
 			<div class="mb-2 flex select-none items-end justify-between px-1 text-main">
 				<div class="flex w-12 flex-col">
 					<span class="text-[10px] font-bold uppercase text-sub opacity-50">time</span>
-					<span class="text-3xl font-bold leading-none text-main">{timer}</span>
+					<span class="text-3xl font-bold leading-none text-main">{game.timer}</span>
 				</div>
 				<div class="flex w-12 flex-col text-right">
 					<span class="text-[10px] font-bold uppercase text-sub opacity-50">mines</span>
-					<span class="text-3xl font-bold leading-none">{minesLeft}</span>
+					<span class="text-3xl font-bold leading-none">{game.minesLeft}</span>
 				</div>
 			</div>
 
-			<div
-				class="grid select-none gap-1 bg-bg transition-all duration-300"
-				style="grid-template-columns: repeat({currentSize.cols}, minmax(0, 1fr));"
+			<GameGrid
+				grid={game.grid}
+				cursor={input.cursor}
+				numCols={game.size.cols}
+				gameState={game.state}
+				on:click={(e) => handleClick(e.detail.r, e.detail.c)}
+				on:flag={(e) => toggleFlag(e.detail.r, e.detail.c)}
+				on:hover={(e) => (input.cursor = e.detail)}
 				on:mousedown={() => {
-					if (gameState === 'playing') isMouseDown = true;
+					if (game.state === 'playing') input.isMouseDown = true;
 				}}
-				on:contextmenu|preventDefault
-			>
-				{#each grid as row, r (r)}
-					{#each row as cell, c (c)}
-						<button
-							class="flex h-8 w-8 items-center justify-center rounded-sm text-sm font-bold transition-all duration-75 focus:outline-none {cell.isOpen
-								? 'bg-sub/10'
-								: 'bg-sub/30 hover:bg-sub/50'} {cell.isMine && cell.isOpen
-								? 'bg-error text-bg'
-								: ''} {cell.isMine && !cell.isOpen && gameState === 'finished'
-								? 'bg-error/50 opacity-50'
-								: ''} {cursor.r === r && cursor.c === c
-								? 'z-10 ring-2 ring-main/50 brightness-110'
-								: ''}"
-							on:click={() => handleClick(r, c)}
-							on:contextmenu|preventDefault={() => toggleFlag(r, c)}
-							on:mouseenter={() => {
-								cursor = { r, c };
-							}}
-						>
-							{#if cell.isOpen}
-								{#if cell.isMine}
-									<Bomb size={16} />
-								{:else if cell.neighborCount > 0}
-									<span
-										class={cell.neighborCount === 1
-											? 'text-blue-400'
-											: cell.neighborCount === 2
-												? 'text-green-400'
-												: cell.neighborCount === 3
-													? 'text-red-400'
-													: 'text-purple-400'}>{cell.neighborCount}</span
-									>
-								{/if}
-							{:else if cell.isFlagged}
-								<span class="text-error"><Flag size={14} fill="currentColor" /></span>
-							{/if}
-						</button>
-					{/each}
-				{/each}
-			</div>
+			/>
 		</div>
 	{/if}
 
-	{#if showPalette}
-		<div
-			class="animate-in fade-in fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm duration-150"
-			on:mousedown|self={() => (showPalette = false)}
-		>
-			<div
-				class="mt-[15vh] flex max-h-[50vh] w-[450px] flex-col overflow-hidden rounded-lg border border-sub/20 bg-bg font-mono text-text shadow-2xl"
-			>
-				<div class="flex items-center gap-3 border-b border-sub/10 p-3">
-					<Search size={14} class="text-main" />
-					<input
-						bind:this={searchInputEl}
-						bind:value={searchQuery}
-						type="text"
-						placeholder={paletteView === 'root' ? 'Type to search...' : 'Search themes...'}
-						class="h-full w-full border-none bg-transparent text-xs text-text outline-none placeholder:text-sub/50"
-					/>
-				</div>
-				<div class="overflow-y-auto p-1.5">
-					{#if paletteView === 'root'}
-						{#each filteredCommands as cmd}
-							<button
-								class="group flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs transition-colors hover:bg-sub/10"
-								on:click={cmd.action}
-							>
-								<div class="flex items-center gap-3">
-									<svelte:component
-										this={cmd.icon}
-										size={12}
-										class="text-sub group-hover:text-main"
-									/>
-									<span class="text-sub/80 group-hover:text-text">{cmd.label}</span>
-								</div>
-								<ChevronRight size={12} class="text-sub/40 group-hover:text-main" />
-							</button>
-						{/each}
-					{:else if paletteView === 'themes'}
-						{#each filteredThemes as theme}
-							<button
-								class="group flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs transition-colors hover:bg-sub/10"
-								on:click={() => {
-									$currentTheme = theme;
-									showPalette = false;
-								}}
-							>
-								<span class="text-sub/80 group-hover:text-text">{theme.label}</span>
-							</button>
-						{/each}
-					{/if}
-				</div>
-			</div>
-		</div>
-	{/if}
+	<CommandPalette bind:show={ui.showPalette} />
 
-	{#if showCustomModal}
-		<div
-			class="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm duration-200"
-			on:click|self={() => (showCustomModal = false)}
-		>
-			<div class="w-full max-w-sm rounded-xl border border-sub/20 bg-bg p-6 shadow-2xl">
-				<div class="mb-6 flex items-center justify-between">
-					<h2 class="flex items-center gap-2 text-lg font-bold text-text">
-						<Wrench size={18} class="text-main" />
-						<span>Custom {gameMode === 'standard' ? 'Grid' : 'Time'}</span>
-					</h2>
-					<button
-						on:click={() => (showCustomModal = false)}
-						class="text-sub transition-colors hover:text-error"
-					>
-						<X size={18} />
-					</button>
-				</div>
+	<CustomSettingsModal
+		bind:show={ui.showCustomModal}
+		gameMode={game.mode}
+		currentRows={game.size.rows}
+		currentCols={game.size.cols}
+		currentMines={game.size.mines}
+		currentTime={game.timeLimit}
+		on:apply={applyCustomSettings}
+	/>
 
-				<div class="flex flex-col gap-4">
-					{#if gameMode === 'standard'}
-						<div class="grid grid-cols-2 gap-4">
-							<div class="flex flex-col gap-1">
-								<label class="text-[10px] font-bold uppercase tracking-widest text-sub">Rows</label>
-								<input
-									type="number"
-									bind:value={customConfig.rows}
-									min="5"
-									max="50"
-									class="rounded border border-sub/20 bg-sub/5 p-2 text-sm font-bold text-text outline-none transition-colors focus:border-main"
-								/>
-							</div>
-							<div class="flex flex-col gap-1">
-								<label class="text-[10px] font-bold uppercase tracking-widest text-sub">Cols</label>
-								<input
-									type="number"
-									bind:value={customConfig.cols}
-									min="5"
-									max="50"
-									class="rounded border border-sub/20 bg-sub/5 p-2 text-sm font-bold text-text outline-none transition-colors focus:border-main"
-								/>
-							</div>
-						</div>
-						<div class="flex flex-col gap-1">
-							<label class="text-[10px] font-bold uppercase tracking-widest text-sub">Mines</label>
-							<input
-								type="number"
-								bind:value={customConfig.mines}
-								min="1"
-								class="rounded border border-sub/20 bg-sub/5 p-2 text-sm font-bold text-text outline-none transition-colors focus:border-main"
-							/>
-						</div>
-					{:else}
-						<div class="flex flex-col gap-1">
-							<label class="text-[10px] font-bold uppercase tracking-widest text-sub"
-								>Time Limit (Seconds)</label
-							>
-							<input
-								type="number"
-								bind:value={customConfig.time}
-								min="10"
-								max="999"
-								class="rounded border border-sub/20 bg-sub/5 p-2 text-sm font-bold text-text outline-none transition-colors focus:border-main"
-							/>
-						</div>
-					{/if}
-
-					<button
-						on:click={applyCustomSettings}
-						class="mt-2 w-full rounded-lg bg-main py-2.5 text-xs font-bold uppercase tracking-widest text-bg transition-opacity hover:opacity-90"
-					>
-						Apply Settings
-					</button>
-				</div>
-			</div>
-		</div>
-	{/if}
-
-	{#if isSearchMode}
+	{#if search.active}
 		<div
 			class="animate-in fade-in slide-in-from-bottom-2 fixed bottom-20 left-1/2 z-50 -translate-x-1/2"
 		>
@@ -1040,7 +811,7 @@
 				class="flex items-center gap-2 rounded-full border border-main/20 bg-bg px-4 py-2 shadow-2xl"
 			>
 				<span class="font-bold text-main">/</span>
-				<span class="min-w-[10px] font-mono text-lg text-text">{searchTerm}</span>
+				<span class="min-w-[10px] font-mono text-lg text-text">{search.term}</span>
 				<span class="animate-pulse text-main">_</span>
 			</div>
 		</div>
@@ -1050,7 +821,7 @@
 		class="pointer-events-none fixed bottom-6 left-0 right-0 flex w-full select-none justify-between px-8"
 	>
 		<div
-			class="flex flex-col gap-2 text-[10px] font-bold tracking-widest text-sub transition-opacity duration-500 {gameState ===
+			class="flex flex-col gap-2 text-[10px] font-bold tracking-widest text-sub transition-opacity duration-500 {game.state ===
 			'playing'
 				? 'opacity-20'
 				: 'opacity-60'}"
@@ -1102,7 +873,7 @@
 		</div>
 
 		<div
-			class="flex flex-col justify-end text-right text-[10px] font-bold uppercase tracking-widest text-sub transition-opacity duration-500 {gameState ===
+			class="flex flex-col justify-end text-right text-[10px] font-bold uppercase tracking-widest text-sub transition-opacity duration-500 {game.state ===
 			'playing'
 				? 'opacity-20'
 				: 'opacity-60'}"

@@ -1,0 +1,5 @@
+{
+	"rules": {
+		"no-self-closing": "off"
+	}
+}

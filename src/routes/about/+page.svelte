@@ -23,14 +23,14 @@
 	import { onMount } from 'svelte';
 	import { supabase } from '$lib/supabase'; // Auth + DB
 	import { injectAnalytics } from '@vercel/analytics/sveltekit'; // Analytics
-	import Chart from 'chart.js/auto'; 
+	import Chart from 'chart.js/auto';
 
 	export let data;
 
 	// --- USER STATE ---
 	let currentUser: string | null = null;
 
-    // --- CHART ---
+	// --- CHART ---
 	let chartCanvas: HTMLCanvasElement;
 	let chartInstance: Chart;
 
@@ -39,13 +39,13 @@
 
 		const min = Math.floor(Math.min(...dataPoints) / binSize) * binSize;
 		const max = Math.ceil(Math.max(...dataPoints) / binSize) * binSize;
-		
+
 		const bins: Record<string, number> = {};
 		for (let i = min; i < max; i += binSize) {
 			bins[`${i}-${i + binSize}`] = 0;
 		}
 
-		dataPoints.forEach(val => {
+		dataPoints.forEach((val) => {
 			const bucket = Math.floor(val / binSize) * binSize;
 			const key = `${bucket}-${bucket + binSize}`;
 			if (bins[key] !== undefined) bins[key]++;
@@ -62,7 +62,7 @@
 		if (!ctx) return;
 
 		const rawData = data.stats.game_results || [];
-		
+
 		const validTimes = rawData
 			.filter((g: any) => g.win === true && g.mode === 'standard')
 			.map((g: any) => g.time);
@@ -93,14 +93,14 @@
 				maintainAspectRatio: false,
 				plugins: { legend: { display: false } },
 				scales: {
-					x: { 
-						ticks: { color: textColor, font: { family: 'monospace', size: 10 } }, 
-						grid: { display: false } 
+					x: {
+						ticks: { color: textColor, font: { family: 'monospace', size: 10 } },
+						grid: { display: false }
 					},
-					y: { 
-						beginAtZero: true, 
-						ticks: { color: textColor, font: { family: 'monospace', size: 10 } }, 
-						grid: { color: gridColor } 
+					y: {
+						beginAtZero: true,
+						ticks: { color: textColor, font: { family: 'monospace', size: 10 } },
+						grid: { color: gridColor }
 					}
 				}
 			}
@@ -195,11 +195,11 @@
 <div
 	class="relative flex min-h-screen flex-col items-center bg-bg p-8 font-mono text-text transition-colors duration-300"
 >
-	<!-- HEADER / NAVIGATION --> 
-    <div
+	<!-- HEADER / NAVIGATION -->
+	<div
 		class="animate-in fade-in slide-in-from-top-4 mb-16 flex w-full max-w-5xl items-center justify-between duration-500"
 	>
-		<!-- Logo + Home Link --> 
+		<!-- Logo + Home Link -->
 		<a
 			href="/"
 			class="group flex select-none items-center gap-3 transition-opacity hover:opacity-80"
@@ -219,7 +219,7 @@
 			</div>
 		</a>
 
-		<!-- User Auth / Profile Button --> 
+		<!-- User Auth / Profile Button -->
 		<div class="flex items-center gap-6 text-sm">
 			{#if currentUser}
 				<!-- Logged-in User Menu -->
@@ -230,7 +230,7 @@
 						<User size={16} />
 						<span class="font-bold">{currentUser}</span>
 					</button>
-					<!-- Dropdown for Profile / Logout --> 
+					<!-- Dropdown for Profile / Logout -->
 					<div
 						class="invisible absolute right-0 top-full pt-2 opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100"
 					>
@@ -254,7 +254,7 @@
 					</div>
 				</div>
 			{:else}
-				<!-- Login Link --> 
+				<!-- Login Link -->
 				<a
 					href="/login"
 					class="flex h-8 w-8 items-center justify-center rounded text-sub transition-colors hover:bg-sub/10 hover:text-text"
@@ -265,11 +265,11 @@
 		</div>
 	</div>
 
-	<!-- MAIN STATS SECTION --> 
+	<!-- MAIN STATS SECTION -->
 	<div class="animate-in fade-in w-full max-w-4xl duration-700">
 		<!-- Summary Stats Grid -->
 		<div class="mb-20 grid grid-cols-1 gap-12 text-center md:grid-cols-3">
-			<!-- Total Boards Started --> 
+			<!-- Total Boards Started -->
 			<div class="flex flex-col gap-1">
 				<span class="text-[10px] font-bold uppercase tracking-widest text-sub opacity-50"
 					>global boards started</span
@@ -277,7 +277,7 @@
 				<span class="text-5xl font-black text-text">{fmtCount(data.stats.started)}</span>
 			</div>
 
-			 <!-- Total Time Sweeping --> 
+			<!-- Total Time Sweeping -->
 			<div class="flex flex-col items-center gap-1">
 				<span class="mb-2 text-[10px] font-bold uppercase tracking-widest text-sub opacity-50"
 					>total time sweeping</span
@@ -314,19 +314,22 @@
 			<!-- PHILOSOPHY SECTION -->
 			<section>
 				<h2
-					class="mb-6 flex items-center gap-3 text-lg font-black uppercase tracking-tight text-text">
-					<Info size={20} class="text-main" /> The Philosophy</h2>
+					class="mb-6 flex items-center gap-3 text-lg font-black uppercase tracking-tight text-text"
+				>
+					<Info size={20} class="text-main" /> The Philosophy
+				</h2>
 				<p class="max-w-3xl text-base">
 					Traditional Minesweeper clones rely heavily on mouse inputs, breaking the <span
 						class="font-bold text-text">flow state</span
 					>.
-					<strong class="text-main">zsweep</strong> reimagines the classic logic puzzle as a keyboard-centric
-					experience. By implementing Vim-style motions (`hjkl`, `w`, `b`, `{'{'}`, `{'}'}`) and instant feedback, we aim
-					to create the most efficient and satisfying sweeping engine for developers.
+					<strong class="text-main">zsweep</strong> reimagines the classic logic puzzle as a
+					keyboard-centric experience. By implementing Vim-style motions (`hjkl`, `w`, `b`, `{'{'}`,
+					`{'}'}`) and instant feedback, we aim to create the most efficient and satisfying sweeping
+					engine for developers.
 				</p>
 			</section>
 
-			<!-- The Stack --> 
+			<!-- The Stack -->
 			<section>
 				<h2
 					class="mb-6 flex items-center gap-3 text-lg font-black uppercase tracking-tight text-text"
@@ -361,7 +364,7 @@
 				</div>
 			</section>
 
-			 <!-- Vim Grammar --> 
+			<!-- Vim Grammar -->
 			<section>
 				<h2
 					class="mb-6 flex items-center gap-3 text-lg font-black uppercase tracking-tight text-text"
@@ -395,8 +398,8 @@
 					</div>
 				</div>
 			</section>
-			
-			<!-- OPEN SOURCE & CONTRIBUTORS --> 
+
+			<!-- OPEN SOURCE & CONTRIBUTORS -->
 			<section class="border-t border-sub/10 pt-16">
 				<h2
 					class="mb-6 flex items-center gap-3 text-lg font-black uppercase tracking-tight text-text"
@@ -405,7 +408,8 @@
 				</h2>
 				<div class="mb-8 flex flex-col gap-4 text-base">
 					<p>
-						<strong class="text-main">zsweep</strong> is fully open source. We are actively looking for contributors to help with
+						<strong class="text-main">zsweep</strong> is fully open source. We are actively looking
+						for contributors to help with
 						<strong class="text-text">Mobile Support</strong> (Touch Events) and the
 						<strong class="text-text">Chording Animation</strong> engine.
 					</p>
@@ -446,9 +450,9 @@
 									class="flex flex-col items-center text-xs text-sub hover:text-main"
 								>
 									<img
-  										src={c.avatar_url}
-  										alt={c.login}
-  										class="h-10 w-10 rounded-full border border-sub/20 object-cover"
+										src={c.avatar_url}
+										alt={c.login}
+										class="h-10 w-10 rounded-full border border-sub/20 object-cover"
 									/>
 									<span class="max-w-[60px] truncate text-center">{c.login}</span>
 								</a>
@@ -456,8 +460,8 @@
 						</div>
 					</section>
 				</div>
-				
-				<!-- GitHub Links --> 
+
+				<!-- GitHub Links -->
 				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 					<a
 						href="https://github.com/oug-t/zsweep"

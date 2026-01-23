@@ -5,78 +5,68 @@
 
 	const dispatch = createEventDispatcher();
 
-	// --- PROPS ---
-	export let win: boolean = false;
-	export let time: number = 0;
-	export let total3BV: number = 0;
-	export let totalClicks: number = 0;
+	export let win = false;
+	export let time = 0;
+	export let total3BV = 0;
+	export let totalClicks = 0;
 	export let history: number[] = [];
-	export let accuracy: number = 0;
-	export let sizeLabel: string = '';
-	export let gridsSolved: number = 0;
-	export let gridsPlayed: number = 0;
+	export let accuracy = 0;
+	export let sizeLabel = '';
+	export let gridsSolved = 0;
+	export let gridsPlayed = 0;
 	export let mode: 'standard' | 'time' = 'standard';
-	export let cells: number = 0; // <--- Added missing prop
+	export let cells = 0;
+	export let totalGlobalSeconds = 0;
 
 	let chartCanvas: HTMLCanvasElement;
-	let chartInstance: any;
+	let chartInstance: Chart | null = null;
 
-	const safeTime = time === 0 ? 1 : time;
-	$: bbbPerSecond = (total3BV / safeTime).toFixed(2);
+	$: bbbPerSecond = (total3BV / Math.max(time, 1)).toFixed(2);
 	$: efficiency = totalClicks > 0 ? Math.round((total3BV / totalClicks) * 100) : 0;
 
-	// Calculate Consistency
-	let consistency = 0;
-	if (history && history.length > 0) {
+	$: consistency = (() => {
+		if (!history?.length) return 0;
 		const mean = history.reduce((a, b) => a + b, 0) / history.length;
 		const variance = history.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / history.length;
-		consistency = Math.max(0, Math.round(100 - Math.sqrt(variance) * 10));
-	}
+		return Math.max(0, Math.round(100 - Math.sqrt(variance) * 10));
+	})();
 
 	onMount(() => {
 		if (!win || !chartCanvas) return;
-		if (chartInstance) chartInstance.destroy();
 
-		const chartLabels =
-			history.length > 0 ? Array.from({ length: history.length }, (_, i) => i + 1) : [1];
+		chartInstance = new Chart(chartCanvas, {
+			type: 'line',
+			data: {
+				labels: history.map((_, i) => i + 1),
+				datasets: [
+					{
+						data: history,
+						borderColor: '#d8b4fe',
+						backgroundColor: 'rgba(216, 180, 254, 0.1)',
+						fill: true,
+						tension: 0.4,
+						pointRadius: 0,
+						borderWidth: 2
+					}
+				]
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				plugins: { legend: { display: false }, tooltip: { enabled: false } },
+				scales: { x: { display: false }, y: { display: false } },
+				layout: { padding: 0 }
+			}
+		});
 
-		try {
-			chartInstance = new Chart(chartCanvas, {
-				type: 'line',
-				data: {
-					labels: chartLabels,
-					datasets: [
-						{
-							label: 'Clicks',
-							data: history,
-							borderColor: '#d8b4fe', // Use your main color hex
-							backgroundColor: 'rgba(216, 180, 254, 0.1)',
-							fill: true,
-							tension: 0.4,
-							pointRadius: 3,
-							pointHoverRadius: 6,
-							borderWidth: 2
-						}
-					]
-				},
-				options: {
-					responsive: true,
-					maintainAspectRatio: false,
-					animation: { duration: 1000, easing: 'easeOutQuart' },
-					plugins: { legend: { display: false } },
-					scales: { x: { display: false }, y: { display: false } },
-					layout: { padding: 5 }
-				}
-			});
-		} catch (e) {
-			console.error(e);
-		}
+		return () => chartInstance?.destroy();
 	});
 </script>
 
 <div
-	class="flex min-h-[50vh] w-full flex-col items-center justify-center gap-8 duration-300
-    {win ? 'animate-in fade-in zoom-in' : 'animate-shake'}"
+	class="flex min-h-[50vh] w-full flex-col items-center justify-center gap-8 duration-300 {win
+		? 'animate-in fade-in zoom-in'
+		: 'animate-shake'}"
 >
 	{#if !win}
 		<div class="flex flex-col items-center gap-6 text-error">
@@ -91,12 +81,11 @@
 				<span class="text-2xl font-bold text-text">{time}s</span>
 			</div>
 			<div class="flex flex-col">
-				<span class="text-xs font-bold uppercase text-sub opacity-50">
-					{mode === 'standard' ? 'swept' : 'solved'}
-				</span>
-				<span class="text-2xl font-bold text-text">
-					{mode === 'standard' ? cells : gridsSolved}
-				</span>
+				<span class="text-xs font-bold uppercase text-sub opacity-50"
+					>{mode === 'standard' ? 'swept' : 'solved'}</span
+				>
+				<span class="text-2xl font-bold text-text">{mode === 'standard' ? cells : gridsSolved}</span
+				>
 			</div>
 			<div class="flex flex-col">
 				<span class="text-xs font-bold uppercase text-sub opacity-50">acc</span>
@@ -120,7 +109,7 @@
 			</div>
 		</div>
 
-		<div class="grid w-full max-w-4xl grid-cols-5 gap-4 text-left">
+		<div class="grid w-full max-w-4xl grid-cols-5 gap-4">
 			<div class="flex flex-col">
 				<span class="mb-1 text-xs font-bold text-sub opacity-50">type</span>
 				<span class="font-bold leading-tight text-text"
@@ -130,19 +119,19 @@
 			</div>
 			<div class="flex flex-col">
 				<span class="mb-1 text-xs font-bold text-sub opacity-50">3bv</span>
-				<span class="text-2xl font-bold leading-none text-text">{total3BV}</span>
+				<span class="text-2xl font-bold text-text">{total3BV}</span>
 			</div>
 			<div class="flex flex-col">
 				<span class="mb-1 text-xs font-bold text-sub opacity-50">efficiency</span>
-				<span class="text-2xl font-bold leading-none text-text">{efficiency}%</span>
+				<span class="text-2xl font-bold text-text">{efficiency}%</span>
 			</div>
 			<div class="flex flex-col">
 				<span class="mb-1 text-xs font-bold text-sub opacity-50">consistency</span>
-				<span class="text-2xl font-bold leading-none text-text">{consistency}%</span>
+				<span class="text-2xl font-bold text-text">{consistency}%</span>
 			</div>
 			<div class="flex flex-col">
 				<span class="mb-1 text-xs font-bold text-sub opacity-50">time</span>
-				<span class="text-2xl font-bold leading-none text-text">{time}s</span>
+				<span class="text-2xl font-bold text-text">{time}s</span>
 			</div>
 		</div>
 	{/if}
@@ -155,7 +144,7 @@
 			<RotateCcw size={18} />
 			<span>Play Again</span>
 		</button>
-		<span class="text-xs text-sub opacity-40">or press <kbd>tab</kbd></span>
+		<span class="text-xs text-sub opacity-40">or press <kbd class="font-sans">tab</kbd></span>
 	</div>
 </div>
 
