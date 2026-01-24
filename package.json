@@ -47,7 +47,7 @@
 		"@vercel/analytics": "^1.6.1",
 		"canvas-confetti": "^1.9.4",
 		"chart.js": "^4.5.1",
-		"lodash": "^4.17.21",
+		"lodash": "^4.17.23",
 		"lucide-svelte": "^0.562.0",
 		"react-chartjs-2": "^5.3.1"
 	}

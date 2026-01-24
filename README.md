@@ -5,6 +5,7 @@
 [![Stargazers][stars-shield]][stars-url]
 [![Issues][issues-shield]][issues-url]
 [![MIT License][license-shield]][license-url]
+[![Hacker News](https://img.shields.io/badge/Hacker%20News-Rank%20%235-FF6600?logo=ycombinator&logoColor=white)](https://news.ycombinator.com/item?id=46667849)
 
 <br />
 <div align="center">
