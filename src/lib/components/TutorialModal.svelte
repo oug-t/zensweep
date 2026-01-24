@@ -202,9 +202,14 @@
 					</a>
 				</div>
 
-				<div class="text-right text-[10px] font-bold uppercase tracking-widest text-sub opacity-40">
-					Press any key
-				</div>
+				<button
+					class="ml-auto block text-[10px] font-bold uppercase tracking-widest text-sub opacity-40 transition-opacity hover:opacity-100"
+					on:click={close}
+				>
+					<span class="sm:hidden">Tap to Start</span>
+
+					<span class="hidden sm:inline">Press any key</span>
+				</button>
 			</div>
 		</div>
 	</div>
