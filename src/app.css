@@ -5,4 +5,28 @@
 :root {
 	--bg: 25 25 25;
 	--main: 216 180 254;
+	--sub: 161 161 170;
+	--text: 228 228 231;
+	--error: 239 68 68;
+
+	color-scheme: dark;
+}
+
+html,
+body {
+	height: 100%;
+	background-color: rgb(var(--bg));
+	color: rgb(var(--text));
+}
+
+a {
+	color: rgb(var(--main));
+}
+
+.muted {
+	color: rgb(var(--sub));
+}
+
+.text-error {
+	color: rgb(var(--error));
 }

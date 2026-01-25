@@ -46,6 +46,10 @@
 	function handleKeydown(e: KeyboardEvent) {
 		if (!show) return;
 
+		if (['ArrowUp', 'ArrowDown', 'Enter', 'Escape'].includes(e.key)) {
+			e.stopPropagation();
+		}
+
 		if (e.key === 'ArrowDown') {
 			e.preventDefault();
 			selectedIndex = (selectedIndex + 1) % currentItems.length;
@@ -56,9 +60,9 @@
 			e.preventDefault();
 			executeSelection(currentItems[selectedIndex]);
 		} else if (e.key === 'Escape') {
+			e.preventDefault();
 			// If in submenu, go back; otherwise close
 			if (paletteView === 'themes') {
-				e.stopPropagation(); // Don't close parent yet
 				paletteView = 'root';
 				searchQuery = '';
 				selectedIndex = 0;
@@ -74,6 +78,7 @@
 		if (paletteView === 'root') {
 			item.action();
 		} else {
+			// It's a theme
 			$currentTheme = item;
 			close();
 		}
@@ -90,7 +95,7 @@
 	<div
 		role="dialog"
 		aria-modal="true"
-		class="animate-in fade-in fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm duration-150"
+		class="animate-in fade-in fixed inset-0 z-[100] flex items-start justify-center bg-black/60 backdrop-blur-sm duration-150"
 		on:mousedown|self={close}
 	>
 		<div
@@ -130,6 +135,7 @@
 									/>
 									<span>{item.label}</span>
 								</div>
+								<ChevronRight size={12} class="opacity-50" />
 							{:else}
 								<span>{item.label}</span>
 							{/if}

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { base } from '$app/paths';
 	import confetti from 'canvas-confetti';
 	import {
 		Grid3x3,
@@ -11,7 +10,8 @@
 		Infinity as InfinityIcon,
 		Palette,
 		Info,
-		Bomb
+		Bomb,
+		BookOpen
 	} from 'lucide-svelte';
 	import {
 		createGrid,
@@ -24,12 +24,10 @@
 	} from '$lib/minesweeper';
 
 	import { supabase } from '$lib/supabase';
-	import { currentTheme } from '$lib/themeStore';
 	import { handleVimKey, calculateVimJump } from '$lib/game/input/vim';
 
 	import GameGrid from '$lib/components/GameGrid.svelte';
 	import ResultView from '$lib/components/ResultView.svelte';
-	import CommandPalette from '$lib/components/CommandPalette.svelte';
 	import CustomSettingsModal from '$lib/components/CustomSettingsModal.svelte';
 	import TutorialModal from '$lib/components/TutorialModal.svelte';
 
@@ -73,11 +71,10 @@
 	};
 
 	let ui = {
-		showPalette: false,
 		showCustomModal: false
 	};
 
-	let showTutorial = true;
+	let showTutorial = false;
 
 	let stats = {
 		clicks: 0,
@@ -94,17 +91,13 @@
 
 	let currentUser: string | null = null;
 
-	function openPalette() {
-		ui.showPalette = true;
-	}
-
 	function openCustomModal() {
 		ui.showCustomModal = true;
 	}
 
 	function closeTutorial() {
 		showTutorial = false;
-		document.cookie = 'zsweep-visited=true; path=/; max-age=31536000; SameSite=Lax';
+		localStorage.setItem('zsweep-visited', 'true');
 	}
 
 	function applyCustomSettings(event: CustomEvent) {
@@ -115,7 +108,6 @@
 			const c = Math.max(5, Math.min(50, config.cols));
 			const maxMines = Math.floor(r * c * 0.85);
 			const m = Math.max(1, Math.min(maxMines, config.mines));
-
 			game.size = { label: 'Custom', rows: r, cols: c, mines: m };
 		} else {
 			const t = Math.max(10, Math.min(999, config.time));
@@ -273,15 +265,27 @@
 	}
 
 	function handleInput(e: KeyboardEvent) {
-		if (ui.showPalette || ui.showCustomModal) {
-			if (e.key === 'Escape') {
-				if (ui.showCustomModal) ui.showCustomModal = false;
+		if (e.key === 'Escape') {
+			if (search.active) {
+				e.preventDefault();
+				search.active = false;
+				search.term = '';
+				return;
 			}
+
+			if (input.buffer.length > 0) {
+				e.preventDefault();
+				input.buffer = '';
+				return;
+			}
+
 			return;
 		}
 
 		if (search.active) {
 			e.preventDefault();
+			e.stopPropagation();
+
 			if (e.key === 'Escape') {
 				search.active = false;
 				search.term = '';
@@ -305,11 +309,18 @@
 			fullReset();
 			return;
 		}
+
 		if (e.key === 'Escape') {
-			e.preventDefault();
-			if (input.buffer.length > 0) input.buffer = '';
-			else if (game.state === 'playing') finishSession(true);
-			else openPalette();
+			if (input.buffer.length > 0 || game.state === 'playing') {
+				e.preventDefault();
+				e.stopPropagation();
+
+				if (input.buffer.length > 0) {
+					input.buffer = '';
+				} else {
+					finishSession(true);
+				}
+			}
 			return;
 		}
 
@@ -530,6 +541,12 @@
 		if (session?.user) {
 			currentUser = session.user.user_metadata.full_name || session.user.email?.split('@')[0];
 		}
+
+		const hasVisited = localStorage.getItem('zsweep-visited');
+		if (!hasVisited) {
+			showTutorial = true;
+		}
+
 		fullReset();
 	});
 
@@ -544,91 +561,12 @@
 	<title>Zsweep</title>
 </svelte:head>
 
-<svelte:window on:keydown={handleInput} on:mouseup={() => (input.isMouseDown = false)} />
+<svelte:document on:keydown|capture={handleInput} />
+<svelte:window on:mouseup={() => (input.isMouseDown = false)} />
 
 <div
 	class="relative flex min-h-screen flex-col items-center bg-bg font-mono text-text transition-colors duration-300"
 >
-	<div
-		class="animate-in fade-in slide-in-from-top-4 mb-0 flex w-full max-w-5xl items-center justify-between p-8 duration-500"
-	>
-		<div class="flex items-center gap-4 transition-all duration-300">
-			<a
-				href="{base}/"
-				class="group flex select-none items-center gap-3 transition-all {game.state === 'playing'
-					? 'pointer-events-none opacity-50 grayscale'
-					: 'hover:opacity-80'}"
-			>
-				<Bomb
-					size={28}
-					strokeWidth={2.5}
-					class="transition-transform duration-300 group-hover:scale-110 {game.state === 'playing'
-						? 'text-sub'
-						: 'text-main'}"
-				/>
-				<h1 class="font-mono text-3xl font-black leading-none tracking-tighter text-text">
-					z<span class={game.state === 'playing' ? 'text-text' : 'text-main'}>sweep</span>
-				</h1>
-			</a>
-
-			<a
-				href="{base}/about"
-				class="text-sub transition-all duration-300 hover:text-text {game.state === 'playing'
-					? 'pointer-events-none opacity-0'
-					: 'opacity-100'}"
-				title="About"
-			>
-				<Info size={20} />
-			</a>
-		</div>
-
-		<div
-			class="flex items-center gap-6 text-sm transition-opacity duration-300 {game.state ===
-			'playing'
-				? 'pointer-events-none opacity-0'
-				: 'opacity-100'}"
-		>
-			{#if currentUser}
-				<div class="group relative z-20">
-					<button
-						class="flex items-center gap-2 rounded px-3 py-1.5 text-main transition-all hover:bg-sub/10"
-					>
-						<User size={16} />
-						<span class="font-bold">{currentUser}</span>
-					</button>
-					<div
-						class="invisible absolute right-0 top-full pt-2 opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100"
-					>
-						<div
-							class="flex min-w-[160px] flex-col rounded border border-sub/20 bg-bg p-1 font-mono text-sm shadow-xl"
-						>
-							<a
-								href="{base}/profile"
-								class="flex items-center gap-2 rounded px-3 py-2 text-sub transition-colors hover:bg-sub/10 hover:text-text"
-							>
-								<User size={14} /><span>Profile</span>
-							</a>
-							<div class="my-1 h-[1px] bg-sub/10"></div>
-							<button
-								on:click={handleLogout}
-								class="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sub transition-colors hover:bg-error/10 hover:text-error"
-							>
-								<LogOut size={14} /><span>Sign Out</span>
-							</button>
-						</div>
-					</div>
-				</div>
-			{:else}
-				<a
-					href="/login"
-					class="flex h-8 w-8 items-center justify-center rounded text-sub hover:bg-sub/10 hover:text-text"
-				>
-					<User size={18} />
-				</a>
-			{/if}
-		</div>
-	</div>
-
 	{#if game.state === 'finished'}
 		<ResultView
 			win={stats.isWin}
@@ -703,14 +641,6 @@
 				>
 					<Wrench size={12} />
 				</button>
-
-				<button
-					class="text-sub transition-colors hover:text-main"
-					on:click={openPalette}
-					title="Themes"
-				>
-					<Palette size={12} />
-				</button>
 			</div>
 		</div>
 
@@ -741,8 +671,6 @@
 		</div>
 	{/if}
 
-	<CommandPalette bind:show={ui.showPalette} />
-
 	<CustomSettingsModal
 		bind:show={ui.showCustomModal}
 		gameMode={game.mode}
@@ -770,72 +698,4 @@
 			</div>
 		</div>
 	{/if}
-
-	<div
-		class="pointer-events-none fixed bottom-6 left-0 right-0 flex w-full select-none justify-between px-8"
-	>
-		<div
-			class="flex flex-col gap-2 text-[10px] font-bold tracking-widest text-sub transition-opacity duration-500 {game.state ===
-			'playing'
-				? 'opacity-20'
-				: 'opacity-60'}"
-		>
-			<div class="flex items-center gap-3">
-				<kbd
-					class="flex min-w-[36px] justify-center rounded bg-sub/20 px-1.5 py-0.5 font-mono text-text shadow-sm"
-					>tab</kbd
-				>
-				<span class="h-[1px] w-3 bg-sub/30"></span>
-				<span>restart</span>
-			</div>
-
-			<div class="flex items-center gap-3">
-				<kbd
-					class="flex min-w-[36px] justify-center rounded bg-sub/20 px-1.5 py-0.5 font-mono text-text shadow-sm"
-					>esc</kbd
-				>
-				<span class="h-[1px] w-3 bg-sub/30"></span>
-				<span>settings</span>
-			</div>
-
-			<div class="flex items-center gap-3">
-				<kbd
-					class="flex min-w-[36px] justify-center rounded bg-sub/20 px-1.5 py-0.5 font-mono text-text shadow-sm"
-					>enter</kbd
-				>
-				<span class="h-[1px] w-3 bg-sub/30"></span>
-				<span>reveal</span>
-			</div>
-
-			<div class="flex items-center gap-3">
-				<kbd
-					class="flex min-w-[36px] justify-center rounded bg-sub/20 px-1.5 py-0.5 font-mono text-text shadow-sm"
-					>spc</kbd
-				>
-				<span class="h-[1px] w-3 bg-sub/30"></span>
-				<span>flag / chord</span>
-			</div>
-
-			<div class="flex items-center gap-3">
-				<kbd
-					class="flex min-w-[36px] justify-center rounded bg-sub/20 px-1.5 py-0.5 font-mono text-text shadow-sm"
-					>vim</kbd
-				>
-				<span class="h-[1px] w-3 bg-sub/30"></span>
-				<span>motions</span>
-			</div>
-		</div>
-
-		<div
-			class="flex flex-col justify-end text-right text-[10px] font-bold uppercase tracking-widest text-sub transition-opacity duration-500 {game.state ===
-			'playing'
-				? 'opacity-20'
-				: 'opacity-60'}"
-		>
-			<div class="flex items-center gap-2">
-				<span>{$currentTheme.label}</span>
-				<Palette size={10} />
-			</div>
-		</div>
-	</div>
 </div>

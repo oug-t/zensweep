@@ -1,5 +1,4 @@
 <script lang="ts">
-	// --- ICON IMPORTS ---
 	import {
 		Bomb,
 		Keyboard,
@@ -15,7 +14,6 @@
 
 	// --- THEME / NAVIGATION ---
 	import { currentTheme } from '$lib/themeStore'; // Light/dark theme state
-	import { goto } from '$app/navigation';
 
 	// --- SVELTE / THIRD-PARTY ---
 	import { onMount } from 'svelte';
@@ -159,13 +157,6 @@
 		currentUser = null;
 	}
 
-	function handleKeydown(e: KeyboardEvent) {
-		if (e.key === 'Tab') {
-			e.preventDefault();
-			goto('/');
-		}
-	}
-
 	// --- CONTRIBUTORS FETCH ---
 	type Contributor = { login: string; avatar_url: string; html_url: string };
 	let contributors: Contributor[] = [];
@@ -188,81 +179,9 @@
 	});
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
-
 <div
 	class="relative flex min-h-screen flex-col items-center bg-bg p-8 font-mono text-text transition-colors duration-300"
 >
-	<!-- HEADER / NAVIGATION -->
-	<div
-		class="animate-in fade-in slide-in-from-top-4 mb-16 flex w-full max-w-5xl items-center justify-between duration-500"
-	>
-		<!-- Logo + Home Link -->
-		<a
-			href="/"
-			class="group flex select-none items-center gap-3 transition-opacity hover:opacity-80"
-		>
-			<Bomb
-				size={28}
-				strokeWidth={2.5}
-				class="text-main transition-transform group-hover:rotate-12"
-			/>
-			<div class="flex flex-col">
-				<h1 class="text-2xl font-black leading-none tracking-tighter text-text">
-					z<span class="text-main">sweep</span>
-				</h1>
-				<span class="text-[10px] font-bold uppercase tracking-[0.2em] text-sub opacity-50"
-					>About</span
-				>
-			</div>
-		</a>
-
-		<!-- User Auth / Profile Button -->
-		<div class="flex items-center gap-6 text-sm">
-			{#if currentUser}
-				<!-- Logged-in User Menu -->
-				<div class="group relative z-20">
-					<button
-						class="flex items-center gap-2 rounded px-3 py-1.5 text-main transition-all hover:bg-sub/10"
-					>
-						<User size={16} />
-						<span class="font-bold">{currentUser}</span>
-					</button>
-					<!-- Dropdown for Profile / Logout -->
-					<div
-						class="invisible absolute right-0 top-full pt-2 opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100"
-					>
-						<div
-							class="flex min-w-[160px] flex-col rounded border border-sub/20 bg-bg p-1 font-mono text-sm shadow-xl"
-						>
-							<a
-								href="/profile"
-								class="flex items-center gap-2 rounded px-3 py-2 text-sub transition-colors hover:bg-sub/10 hover:text-text"
-							>
-								<User size={14} /><span>Profile</span>
-							</a>
-							<div class="my-1 h-[1px] bg-sub/10"></div>
-							<button
-								on:click={handleLogout}
-								class="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sub transition-colors hover:bg-error/10 hover:text-error"
-							>
-								<LogOut size={14} /><span>Sign Out</span>
-							</button>
-						</div>
-					</div>
-				</div>
-			{:else}
-				<!-- Login Link -->
-				<a
-					href="/login"
-					class="flex h-8 w-8 items-center justify-center rounded text-sub transition-colors hover:bg-sub/10 hover:text-text"
-				>
-					<User size={18} />
-				</a>
-			{/if}
-		</div>
-	</div>
-
 	<!-- MAIN STATS SECTION -->
 	<div class="animate-in fade-in w-full max-w-4xl duration-700">
 		<!-- Summary Stats Grid -->
@@ -485,32 +404,6 @@
 					</a>
 				</div>
 			</section>
-		</div>
-	</div>
-
-	<div
-		class="pointer-events-none fixed bottom-6 left-0 right-0 flex w-full select-none justify-between px-8"
-	>
-		<div
-			class="flex flex-col gap-2 text-[10px] font-bold uppercase tracking-widest text-sub opacity-40"
-		>
-			<div class="flex items-center gap-3">
-				<kbd
-					class="flex min-w-[36px] justify-center rounded bg-sub/20 px-1.5 py-0.5 font-mono text-text shadow-sm"
-					>tab</kbd
-				>
-				<span class="h-[1px] w-3 bg-sub/30"></span>
-				<span>Home</span>
-			</div>
-		</div>
-
-		<div
-			class="flex flex-col justify-end text-right text-[10px] font-bold uppercase tracking-widest text-sub opacity-40"
-		>
-			<div class="flex items-center gap-2">
-				<span>{$currentTheme?.label || 'default'}</span>
-				<Palette size={10} />
-			</div>
 		</div>
 	</div>
 </div>

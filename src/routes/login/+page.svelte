@@ -114,26 +114,7 @@
 
 <svelte:window on:keydown={handleGlobalKeydown} />
 
-<div class="relative flex min-h-screen flex-col items-center bg-bg font-mono text-text">
-	<div
-		class="animate-in fade-in slide-in-from-top-4 mb-8 flex w-full max-w-5xl items-center justify-between p-8 duration-500"
-	>
-		<a href="/" class="flex select-none items-center gap-2 transition-opacity hover:opacity-80">
-			<Bomb size={24} class="text-main" />
-			<h1 class="text-2xl font-bold tracking-tight text-text">
-				z<span class="text-main">sweep</span>
-			</h1>
-		</a>
-
-		<a
-			href="/"
-			class="flex h-8 w-8 items-center justify-center rounded text-sub transition-colors hover:bg-sub/10 hover:text-text"
-			aria-label="Guest Access"
-		>
-			<User size={18} />
-		</a>
-	</div>
-
+<div class="relative flex min-h-screen flex-col items-center bg-bg pt-20 font-mono text-text">
 	<div
 		class="animate-in fade-in zoom-in z-10 grid w-full max-w-4xl grid-cols-1 gap-16 px-4 duration-300 md:grid-cols-2 md:gap-32"
 	>
@@ -294,15 +275,4 @@
 			{errorMsg || successMsg}
 		</div>
 	{/if}
-
-	<div class="fixed bottom-8 flex gap-6 font-mono text-xs text-sub opacity-40">
-		<div class="flex items-center gap-2">
-			<kbd class="rounded bg-sub/20 px-1.5 py-0.5 text-text">tab</kbd>
-			<span>- restart</span>
-		</div>
-		<div class="flex items-center gap-2">
-			<kbd class="rounded bg-sub/20 px-1.5 py-0.5 text-text">esc</kbd>
-			<span>- search</span>
-		</div>
-	</div>
 </div>

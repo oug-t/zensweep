@@ -1,16 +1,20 @@
+export type RGB = `${number} ${number} ${number}`;
+
+export interface ThemeColors {
+	bg: RGB;
+	main: RGB;
+	sub: RGB;
+	text: RGB;
+	error: RGB;
+}
+
 export interface Theme {
 	name: string;
 	label: string;
-	colors: {
-		bg: string;
-		main: string;
-		sub: string;
-		text: string;
-		error: string;
-	};
+	colors: ThemeColors;
 }
 
-export const THEMES: Theme[] = [
+export const THEMES = [
 	{
 		name: 'z_modern',
 		label: 'Z Modern',
@@ -110,4 +114,18 @@ export const THEMES: Theme[] = [
 			error: '247 118 142'
 		}
 	}
-];
+] satisfies Theme[];
+
+/**
+ * Helper: apply a theme’s colors to CSS variables.
+ * Keeps the "rgb triplet" format so your CSS uses rgb(var(--bg)).
+ */
+export function applyThemeToRoot(theme: Theme): void {
+	const root = document.documentElement;
+
+	root.style.setProperty('--bg', theme.colors.bg);
+	root.style.setProperty('--main', theme.colors.main);
+	root.style.setProperty('--sub', theme.colors.sub);
+	root.style.setProperty('--text', theme.colors.text);
+	root.style.setProperty('--error', theme.colors.error);
+}
