@@ -3,21 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { supabase } from '$lib/supabase';
-	import {
-		User,
-		Trophy,
-		Calendar,
-		Clock,
-		Download,
-		Bomb,
-		LogOut,
-		Search,
-		ChevronRight,
-		Activity,
-		Zap
-	} from 'lucide-svelte';
-	import { currentTheme } from '$lib/themeStore';
-	import { THEMES } from '$lib/themes';
+	import { User, Calendar, Clock, Download, Bomb, LogOut, Activity, Zap } from 'lucide-svelte';
 
 	interface Profile {
 		id: string;
@@ -45,11 +31,7 @@
 	};
 
 	let ui = {
-		loading: true,
-		showPalette: false,
-		paletteView: 'root' as 'root' | 'themes',
-		searchQuery: '',
-		searchInputEl: undefined as HTMLInputElement | undefined
+		loading: true
 	};
 
 	let dataState = {
@@ -74,27 +56,6 @@
 		totalMinesSwept: 0,
 		completionRate: 0
 	};
-
-	const COMMANDS = [
-		{
-			id: 'theme',
-			label: 'Theme...',
-			icon: Trophy,
-			action: () => {
-				ui.paletteView = 'themes';
-				ui.searchQuery = '';
-				ui.searchInputEl?.focus();
-			}
-		}
-	];
-
-	$: filteredThemes = THEMES.filter((t) =>
-		t.label.toLowerCase().includes(ui.searchQuery.toLowerCase())
-	);
-
-	$: filteredCommands = COMMANDS.filter((c) =>
-		c.label.toLowerCase().includes(ui.searchQuery.toLowerCase())
-	);
 
 	function calculateStats(data: GameResult[]) {
 		const newStats = {
@@ -258,22 +219,6 @@
 		await supabase.auth.signOut();
 		window.location.href = `${base}/login`;
 	}
-
-	function handleInput(e: KeyboardEvent) {
-		if (ui.showPalette) {
-			if (e.key === 'Escape') ui.showPalette = false;
-			return;
-		}
-		if (e.key === 'Tab') {
-			e.preventDefault();
-			goto(`${base}/`);
-		}
-		if (e.key === 'Escape') {
-			ui.showPalette = true;
-			ui.paletteView = 'root';
-			setTimeout(() => ui.searchInputEl?.focus(), 50);
-		}
-	}
 </script>
 
 <svelte:window on:keydown={handleInput} />
@@ -281,52 +226,6 @@
 <div
 	class="relative flex min-h-screen flex-col items-center bg-bg font-mono text-text transition-colors duration-300"
 >
-	<div
-		class="animate-in fade-in slide-in-from-top-4 mb-0 flex w-full max-w-5xl items-center justify-between p-8 duration-500"
-	>
-		<div class="flex items-center gap-4 transition-all duration-300">
-			<a
-				href="{base}/"
-				class="group flex select-none items-center gap-3 transition-all hover:opacity-80"
-			>
-				<Bomb
-					size={28}
-					strokeWidth={2.5}
-					class="text-main transition-transform duration-300 group-hover:scale-110"
-				/>
-				<h1 class="font-mono text-3xl font-black leading-none tracking-tighter text-text">
-					z<span class="text-main">sweep</span>
-				</h1>
-			</a>
-		</div>
-
-		<div class="flex items-center gap-6 text-sm">
-			<div class="group relative z-20">
-				<button
-					class="flex items-center gap-2 rounded bg-sub/10 px-3 py-1.5 text-main transition-all"
-				>
-					<User size={16} />
-					<span class="font-bold">{dataState.currentUser || 'Loading...'}</span>
-				</button>
-				<div
-					class="invisible absolute right-0 top-full pt-2 opacity-0 transition-all duration-200 group-hover:visible group-hover:opacity-100"
-				>
-					<div
-						class="flex min-w-[160px] flex-col rounded border border-sub/20 bg-bg p-1 font-mono text-sm shadow-xl"
-					>
-						<button
-							on:click={handleLogout}
-							class="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sub transition-colors hover:bg-error/10 hover:text-error"
-						>
-							<LogOut size={14} />
-							<span>Sign Out</span>
-						</button>
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
-
 	{#if ui.loading}
 		<div class="mt-20 animate-pulse text-sub">loading profile...</div>
 	{:else}
@@ -504,73 +403,6 @@
 							{/each}
 						</tbody>
 					</table>
-				</div>
-			</div>
-		</div>
-	{/if}
-
-	{#if ui.showPalette}
-		<div
-			class="animate-in fade-in fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm duration-150"
-			on:mousedown|self={() => (ui.showPalette = false)}
-		>
-			<div
-				class="mt-[15vh] flex max-h-[50vh] w-[450px] flex-col overflow-hidden rounded-lg border border-sub/20 bg-bg font-mono text-text shadow-2xl"
-			>
-				<div class="flex items-center gap-3 border-b border-sub/10 p-3">
-					<Search size={14} class="text-main" />
-					<input
-						bind:this={ui.searchInputEl}
-						bind:value={ui.searchQuery}
-						type="text"
-						placeholder={ui.paletteView === 'root' ? 'Type to search...' : 'Search themes...'}
-						class="h-full w-full bg-transparent text-xs text-text outline-none"
-					/>
-				</div>
-				<div class="overflow-y-auto p-1.5">
-					{#if ui.paletteView === 'root'}
-						{#each filteredCommands as cmd (cmd.id)}
-							<button
-								class="group flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs hover:bg-sub/10"
-								on:click={cmd.action}
-							>
-								<div class="flex items-center gap-3">
-									<svelte:component
-										this={cmd.icon}
-										size={12}
-										class="text-sub group-hover:text-main"
-									/><span>{cmd.label}</span>
-								</div>
-								<ChevronRight size={12} class="text-sub/40 group-hover:text-main" />
-							</button>
-						{/each}
-					{:else if ui.paletteView === 'themes'}
-						{#each filteredThemes as theme (theme.name)}
-							<button
-								class="group flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs hover:bg-sub/10"
-								on:click={() => {
-									$currentTheme = theme;
-									ui.showPalette = false;
-								}}
-							>
-								<div class="flex items-center gap-3">
-									<div class="flex gap-1">
-										<div
-											class="h-2 w-2 rounded-full"
-											style="background-color: rgb({theme.colors.bg})"
-										></div>
-										<div
-											class="h-2 w-2 rounded-full"
-											style="background-color: rgb({theme.colors.main})"
-										></div>
-									</div>
-									<span class={$currentTheme.name === theme.name ? 'font-bold text-main' : ''}
-										>{theme.label}</span
-									>
-								</div>
-							</button>
-						{/each}
-					{/if}
 				</div>
 			</div>
 		</div>

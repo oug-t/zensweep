@@ -3,33 +3,30 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { supabase } from '$lib/supabase';
 	import { Bomb, User, LogOut, BookOpen, Info, Palette } from 'lucide-svelte';
+
+	import { supabase } from '$lib/supabase';
 	import { currentTheme } from '$lib/themeStore';
+
 	import CommandPalette from '$lib/components/CommandPalette.svelte';
 
 	let currentUser: string | null = null;
 	let showPalette = false;
 
 	function handleGlobalKeydown(e: KeyboardEvent) {
-		if (e.key === 'Escape') {
+		if (e.key === ':') {
+			e.preventDefault();
+			showPalette = !showPalette;
+			return;
+		}
+
+		if (e.key === 'Escape' || (e.ctrlKey && (e.key === '[' || e.key === 'c'))) {
 			if (showPalette) {
 				e.preventDefault();
 				showPalette = false;
+				e.stopPropagation();
 				return;
 			}
-
-			if (e.defaultPrevented) return;
-
-			const activeEl = document.activeElement;
-			if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
-				(activeEl as HTMLElement).blur();
-				return;
-			}
-
-			e.preventDefault();
-			showPalette = true;
-			return;
 		}
 
 		if (e.key === 'Tab') {
@@ -188,19 +185,19 @@
 				<div class="flex items-center gap-3">
 					<kbd
 						class="flex min-w-[36px] justify-center rounded bg-sub/20 px-1.5 py-0.5 font-mono text-text shadow-sm"
-						>esc</kbd
+						>spc</kbd
 					>
 					<span class="h-[1px] w-3 bg-sub/30"></span>
-					<span>settings</span>
+					<span>flag/chord</span>
 				</div>
 
 				<div class="flex items-center gap-3">
 					<kbd
 						class="flex min-w-[36px] justify-center rounded bg-sub/20 px-1.5 py-0.5 font-mono text-text shadow-sm"
-						>spc</kbd
+						>:</kbd
 					>
 					<span class="h-[1px] w-3 bg-sub/30"></span>
-					<span>flag/chord</span>
+					<span>palette</span>
 				</div>
 			</div>
 

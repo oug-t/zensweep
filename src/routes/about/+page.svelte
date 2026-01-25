@@ -1,16 +1,5 @@
 <script lang="ts">
-	import {
-		Bomb,
-		Keyboard,
-		Info,
-		Palette,
-		User,
-		LogOut,
-		Github,
-		Code2,
-		GitPullRequest,
-		Cpu
-	} from 'lucide-svelte';
+	import { Keyboard, Info, Github, Code2, GitPullRequest, Cpu } from 'lucide-svelte';
 
 	// --- THEME / NAVIGATION ---
 	import { currentTheme } from '$lib/themeStore'; // Light/dark theme state
@@ -23,7 +12,6 @@
 	export let data;
 
 	// --- USER STATE ---
-	let currentUser: string | null = null;
 
 	// --- CHART ---
 	let chartCanvas: HTMLCanvasElement;

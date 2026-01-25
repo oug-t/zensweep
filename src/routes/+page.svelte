@@ -265,28 +265,11 @@
 	}
 
 	function handleInput(e: KeyboardEvent) {
-		if (e.key === 'Escape') {
-			if (search.active) {
-				e.preventDefault();
-				search.active = false;
-				search.term = '';
-				return;
-			}
-
-			if (input.buffer.length > 0) {
-				e.preventDefault();
-				input.buffer = '';
-				return;
-			}
-
-			return;
-		}
-
 		if (search.active) {
 			e.preventDefault();
 			e.stopPropagation();
 
-			if (e.key === 'Escape') {
+			if (e.key === 'Escape' || (e.ctrlKey && (e.key === '[' || e.key === 'c'))) {
 				search.active = false;
 				search.term = '';
 			} else if (e.key === 'Enter') {
@@ -302,6 +285,7 @@
 
 		const activeEl = document.activeElement;
 		if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) return;
+
 		if (e.metaKey || e.ctrlKey || e.altKey) return;
 
 		if (e.key === 'Tab') {
@@ -310,17 +294,15 @@
 			return;
 		}
 
-		if (e.key === 'Escape') {
-			if (input.buffer.length > 0 || game.state === 'playing') {
-				e.preventDefault();
-				e.stopPropagation();
+		// Normal Mode: Cancel numeric inputs (Vim counts)
+		if (e.key === 'Escape' || (e.ctrlKey && (e.key === '[' || e.key === 'c'))) {
+			e.preventDefault();
 
-				if (input.buffer.length > 0) {
-					input.buffer = '';
-				} else {
-					finishSession(true);
-				}
+			if (input.buffer.length > 0) {
+				input.buffer = '';
+				return;
 			}
+
 			return;
 		}
 

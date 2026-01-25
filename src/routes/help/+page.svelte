@@ -4,9 +4,9 @@
 
 	const shortcuts = [
 		{ keys: ['Tab'], desc: 'Restart / Back to home' },
-		{ keys: ['Escape'], desc: 'Open settings' },
-		{ keys: ['Space'], desc: 'Flag a cell / Chord an open cell' },
-		{ keys: ['Enter'], desc: 'Reveal a cell' }
+		{ keys: ['Space'], desc: 'Flag / Chord' },
+		{ keys: ['Enter'], desc: 'Reveal a cell' },
+		{ keys: [':'], desc: 'Open palette' }
 	];
 
 	const motions = [
