@@ -542,7 +542,7 @@
 	<title>Zsweep</title>
 </svelte:head>
 
-<svelte:document on:keydown|capture={handleInput} />
+<svelte:document on:keydown={handleInput} />
 <svelte:window on:mouseup={() => (input.isMouseDown = false)} />
 
 <div

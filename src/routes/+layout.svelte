@@ -61,7 +61,7 @@
 	}
 </script>
 
-<svelte:window on:keydown|capture={handleGlobalKeydown} />
+<svelte:window on:keydown={handleGlobalKeydown} />
 
 <svelte:head>
 	<link

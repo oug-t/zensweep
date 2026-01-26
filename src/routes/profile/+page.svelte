@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { supabase } from '$lib/supabase';
-	import { User, Calendar, Clock, Download, Bomb, LogOut, Activity, Zap } from 'lucide-svelte';
+	import { User, Calendar, Clock, Download, Activity, Zap } from 'lucide-svelte';
 
 	interface Profile {
 		id: string;
@@ -214,14 +214,7 @@
 			cancelled = true;
 		};
 	});
-
-	async function handleLogout() {
-		await supabase.auth.signOut();
-		window.location.href = `${base}/login`;
-	}
 </script>
-
-<svelte:window on:keydown={handleInput} />
 
 <div
 	class="relative flex min-h-screen flex-col items-center bg-bg font-mono text-text transition-colors duration-300"

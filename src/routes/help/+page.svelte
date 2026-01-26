@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Keyboard, MousePointer2, Hash, Gamepad2 } from 'lucide-svelte';
+	import { Keyboard, Hash, Gamepad2 } from 'lucide-svelte';
 	import PatternDemo from '$lib/components/docs/PatternDemo.svelte';
 
 	const shortcuts = [

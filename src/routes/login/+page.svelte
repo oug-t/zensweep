@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { User, Check, Bomb } from 'lucide-svelte';
+	import { User, Check } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { supabase } from '$lib/supabase';
 
