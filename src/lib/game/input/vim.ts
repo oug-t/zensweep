@@ -70,7 +70,7 @@ export function handleVimKey(key: string): VimAction {
 			return { type: 'REVEAL' };
 		case ' ':
 			return { type: 'SMART' };
-		case 'f':
+		case 'a':
 			return { type: 'FLAG' };
 
 		default:

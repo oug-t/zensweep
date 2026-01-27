@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { Keyboard, Hash, Gamepad2 } from 'lucide-svelte';
+	import { Keyboard, Hash, Gamepad2, Zap } from 'lucide-svelte';
 	import PatternDemo from '$lib/components/docs/PatternDemo.svelte';
 
 	const shortcuts = [
 		{ keys: ['Tab'], desc: 'Restart / Back to home' },
-		{ keys: ['Space'], desc: 'Flag / Chord' },
 		{ keys: ['Enter'], desc: 'Reveal a cell' },
-		{ keys: [':'], desc: 'Open palette' }
+		{ keys: [':'], desc: 'Open palette' },
+		{ keys: ['Esc'], desc: 'Cancel operator / Clear selection' }
 	];
 
 	const motions = [
@@ -15,6 +15,24 @@
 		{ keys: ['gg', 'G'], desc: 'Jump to Top / Bottom of grid' },
 		{ keys: ['/'], desc: 'Search for a number (e.g. /7)' },
 		{ keys: ['n', 'N'], desc: 'Next / Previous search match' }
+	];
+
+	const operators = [
+		{
+			combo: ['Space / a'],
+			desc: 'Flag Current',
+			detail: 'Flags the current cell immediately (like "dd").'
+		},
+		{
+			combo: ['Space', 'j'],
+			desc: 'Flag Range',
+			detail: 'Flags current cell and the one below.'
+		},
+		{
+			combo: ['4', 'Space', 'l'],
+			desc: 'Count + Op',
+			detail: 'Flags current cell and 4 cells to the right.'
+		}
 	];
 </script>
 
@@ -35,15 +53,14 @@
 				<div class="space-y-2">
 					<h3 class="text-xs font-bold uppercase tracking-widest text-sub">Strategy</h3>
 					<ul class="space-y-2 text-sm">
-						<li>
-							<a href="#patterns" class="hover:text-main">Mine Patterns</a>
-						</li>
+						<li><a href="#patterns" class="hover:text-main">Mine Patterns</a></li>
 					</ul>
 				</div>
 				<div class="space-y-2">
 					<h3 class="text-xs font-bold uppercase tracking-widest text-sub">Controls</h3>
 					<ul class="space-y-2 text-sm">
 						<li><a href="#vim" class="hover:text-main">Vim Motions</a></li>
+						<li><a href="#operators" class="hover:text-main">Operators</a></li>
 					</ul>
 				</div>
 			</div>
@@ -51,12 +68,7 @@
 
 		<main class="max-w-4xl space-y-24">
 			<header>
-				<h1
-					class="mb-4 text-4xl font-black tracking-tighter
-                    text-main"
-				>
-					Help
-				</h1>
+				<h1 class="mb-4 text-4xl font-black tracking-tighter text-main">Help</h1>
 				<p class="text-lg text-sub">
 					zsweep :help pages, reference guide for controls and strategies.
 				</p>
@@ -119,7 +131,9 @@
 				</div>
 
 				<p class="mb-6 text-sm text-sub">
-					Use these keys to navigate the grid efficiently without a mouse.
+					Use standard Vim keys to navigate efficiently. Motions support counts (e.g., <code
+						>4j</code
+					> moves down 4 times).
 				</p>
 
 				<div class="grid gap-4 sm:grid-cols-2">
@@ -134,6 +148,45 @@
 									>
 								{/each}
 							</div>
+						</div>
+					{/each}
+				</div>
+			</section>
+
+			<section id="operators" class="scroll-mt-20">
+				<div class="mb-6 flex items-center gap-3 border-b border-main/10 pb-2">
+					<Zap class="text-main" />
+					<h2 class="text-2xl font-bold">Advanced Operators</h2>
+				</div>
+
+				<div class="mb-6 space-y-4 text-sm text-sub">
+					<p>
+						In Zsweep, <kbd class="rounded bg-sub/20 px-1 font-bold text-main">Space</kbd>
+						acts as an <strong>Operator</strong> (like <code>d</code> in Vim). It allows you to flag or
+						chord multiple cells at once by combining it with motions.
+					</p>
+					<p>
+						To act on multiple cells, place the <strong>count before the operator</strong>
+						(e.g., <code>4 Space l</code>). This prevents latency issues and ensures the action is
+						applied to the full range immediately.
+					</p>
+				</div>
+
+				<div class="grid gap-4">
+					{#each operators as item}
+						<div
+							class="flex flex-col gap-2 rounded bg-sub/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+						>
+							<div class="flex items-center gap-2">
+								{#each item.combo as key}
+									<kbd
+										class="min-w-[28px] rounded bg-sub/20 px-2 py-1 text-center font-bold text-white shadow-sm"
+										>{key}</kbd
+									>
+								{/each}
+								<span class="ml-2 font-bold text-main">{item.desc}</span>
+							</div>
+							<span class="text-sm text-sub">{item.detail}</span>
 						</div>
 					{/each}
 				</div>
