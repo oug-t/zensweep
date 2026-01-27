@@ -13,6 +13,12 @@
 	let currentUser: string | null = null;
 	let showPalette = false;
 
+	// Track seen state individually for each icon
+	let seenState = {
+		about: true,
+		manual: true
+	};
+
 	function handleGlobalKeydown(e: KeyboardEvent) {
 		if (e.key === ':') {
 			e.preventDefault();
@@ -37,7 +43,22 @@
 		}
 	}
 
+	function markAsSeen(key: 'about' | 'manual') {
+		if (!seenState[key]) {
+			seenState[key] = true;
+			localStorage.setItem(`zsweep-seen-${key}`, 'true');
+		}
+	}
+
 	onMount(() => {
+		const aboutSeen = localStorage.getItem('zsweep-seen-about');
+		const manualSeen = localStorage.getItem('zsweep-seen-manual');
+
+		seenState = {
+			about: !!aboutSeen,
+			manual: !!manualSeen
+		};
+
 		supabase.auth.getSession().then(({ data: { session } }) => {
 			if (session?.user) {
 				currentUser = session.user.user_metadata.full_name || session.user.email?.split('@')[0];
@@ -99,10 +120,13 @@
 			<div class="flex items-center gap-2">
 				<a
 					href="/about"
+					on:click={() => markAsSeen('about')}
 					class="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-sub/10 hover:text-text {$page
 						.url.pathname === '/about'
 						? 'bg-sub/10 text-text'
-						: 'text-sub'}"
+						: !seenState.about
+							? 'animate-pulse text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,0.8)]'
+							: 'text-sub'}"
 					title="About"
 				>
 					<Info size={22} />
@@ -110,10 +134,13 @@
 
 				<a
 					href="/help"
+					on:click={() => markAsSeen('manual')}
 					class="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-sub/10 hover:text-text {$page
 						.url.pathname === '/help'
 						? 'bg-sub/10 text-text'
-						: 'text-sub'}"
+						: !seenState.manual
+							? 'animate-pulse text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,0.8)]'
+							: 'text-sub'}"
 					title="Manual / Help"
 				>
 					<BookOpen size={22} />
