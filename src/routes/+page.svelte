@@ -222,6 +222,13 @@
 		if (game.isFirstClick) {
 			game.isFirstClick = false;
 			if (game.state === 'pending') startSession();
+			// clear any flags placed before game initialization
+			for (const row of game.grid) {
+				for (const cell of row) {
+					cell.isFlagged = false;
+				}
+			}
+			game.minesLeft = game.size.mines;
 			placeMines(game.grid, game.size.mines, { r, c });
 		}
 
