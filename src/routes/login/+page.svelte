@@ -98,21 +98,7 @@
 			regData = { username: '', email: '', password: '', verifyPassword: '' };
 		}
 	}
-
-	function handleGlobalKeydown(e: KeyboardEvent) {
-		if (e.key === 'Tab') {
-			const active = document.activeElement;
-			const isInput = active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement;
-
-			if (!isInput) {
-				e.preventDefault();
-				window.location.href = '/';
-			}
-		}
-	}
 </script>
-
-<svelte:window on:keydown={handleGlobalKeydown} />
 
 <div class="relative flex min-h-screen flex-col items-center bg-bg pt-20 font-mono text-text">
 	<div

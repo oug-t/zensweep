@@ -36,7 +36,10 @@
 		}
 
 		if (e.key === 'Tab') {
-			if ($page.url.pathname !== '/') {
+			const active = document.activeElement;
+			const isInput = active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement;
+
+			if (!isInput && $page.url.pathname !== '/') {
 				e.preventDefault();
 				goto('/');
 			}
